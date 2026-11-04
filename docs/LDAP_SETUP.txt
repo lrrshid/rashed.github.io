@@ -1,0 +1,608 @@
+CAPABILITY PORTFOLIO COMMAND - SIGN-IN WITH WINDOWS ACCOUNTS (COMPANY DIRECTORY / LDAP)
+================================================================================
+Written 15 Oct 2026. For the owner and for IT. Plain words first; the exact names of settings and commands are
+given so IT can copy them. Passwords are never written in this file.
+
+Contents
+   1. What this is, and what changes for the people who use the system
+   2. Who controls what
+   3. What IT must provide
+   4. WHERE IT ENTERS THE INFORMATION: the file ldap.env
+   5. Every line of ldap.env explained
+   6. The company CA certificate file
+   7. Test the connection (check-ldap) and what the answers mean
+   8. Switch it on and restart the app; the first admin
+   9. Usernames (U + digits) and adding people on "Settings > Users"
+  10. The emergency (break-glass) admin
+  11. Timeouts
+  12. When someone leaves, moves job or is disabled
+  13. Go-live checklist
+  14. Switching back to local mode in an emergency
+  15. Security notes
+  16. Troubleshooting
+  17. Offline install (the air-gapped server)
+  18. For developers
+
+
+1. WHAT THIS IS, AND WHAT CHANGES FOR THE PEOPLE WHO USE THE DASHBOARD
+-----------------------------------------------------------------------
+Today the system has its own usernames and passwords (the demo uses "mock" accounts with a public password).
+On the company server people will instead sign in with the SAME username and password they use to log on to
+their Windows computer, for example:
+
+      Username:  U12345
+      Password:  (their normal Windows password)
+
+The dashboard does not store or see Windows passwords afterwards. It asks the company directory (Microsoft Active
+Directory, reached through a standard called LDAP) "is this the right password for U12345?" and the directory
+answers yes or no.
+
+What changes for users:
+  * They type their Windows username and Windows password on the sign-in page.
+  * They do not need a separate dashboard password, and there is nothing to reset in the system. A forgotten or
+    expired password is handled by IT, the normal Windows way. After they change their Windows password, they use
+    the new one in the system too.
+  * Having a Windows account is NOT enough to get in: an admin of the system must first add them on the
+    "Settings > Users" page (section 9).
+  * They are signed out after 30 minutes without using the system, and in any case 12 hours after signing in
+    (section 11).
+
+Nothing changes in the system itself: the pages, roles, departments and history are the same.
+
+The switch is called AUTH_MODE. It is "local" until IT has filled in and tested the settings, so the demo and
+this PC keep working exactly as before.
+
+
+2. WHO CONTROLS WHAT
+--------------------
+  IT (the company directory)                  The dashboard admin (role ADMIN, page "Settings > Users")
+  ------------------------------------------  ---------------------------------------------------------------
+  Windows usernames and passwords             WHO may use the system (only people added there, and active)
+  Password resets, expiry, lock-outs          Each person's ROLE (nine roles, e.g. Executive, Head of department)
+  Disabling people who leave                  The DEPARTMENTS of a department-scoped user
+  The settings file ldap.env on the server    Deactivating a person in the system (ends their session at once)
+  The read-only service account               Never sees or sets a Windows password
+  The emergency (break-glass) password        (kept sealed by IT or the DBA, see section 10)
+  Each person's full name (copied by the
+  dashboard at every sign-in, section 9)
+
+Decided by the owner (15 Oct 2026):
+  * Access: only people an admin has added on "Settings > Users" can use the system ("option A"). Directory
+    groups are not used.
+  * Roles and departments: given in the system, not taken from the directory.
+  * One emergency local admin ("break-glass") for when the directory is down.
+  * Timeouts: directory 5 seconds; sessions 30 minutes idle / 12 hours. No extra re-checking of the directory
+    during a session.
+  * Names (30 Oct 2026): each person's name follows the directory; it is updated every time they sign in.
+
+
+3. WHAT IT MUST PROVIDE
+-----------------------
+Before starting, IT collects these (the next sections say exactly where each one goes):
+
+  a) The name of the directory server(s) (domain controllers), e.g. dc01.company.local, and a second one as backup
+     if there is one. The name must be the one written on the server's certificate.
+  b) The port and the type of encryption: normally LDAPS on port 636 (or STARTTLS on port 389).
+     LDAPS must be enabled on the domain controllers (they need a server certificate; most AD networks with a
+     company certificate authority have it already).
+  c) The company CA certificate file (the certificate that signed the domain controllers' certificates), as a
+     .cer, .crt or .pem file (section 6).
+  d) Where the staff accounts are in the directory (the "base DN"), e.g. OU=Staff,DC=company,DC=local.
+  e) A read-only service account (a normal domain account with no admin rights) and its password, e.g.
+     svc-cpc@company.local. The dashboard uses it only to FIND a person before checking their password.
+  f) The firewall opening: the system server must reach the domain controllers on that port (636 or 389).
+  g) A real Windows username to test with (U followed by digits).
+
+
+4. WHERE IT ENTERS THE INFORMATION: THE FILE ldap.env
+-----------------------------------------------------
+Everything IT enters goes into ONE text file called
+
+      ldap.env
+
+in the PROJECT ROOT FOLDER on the server: the folder that holds README.md, CLAUDE.md, ldap.env.example and the
+backend and frontend folders. In the examples below the project folder is C:\CapabilityPortfolio; use the real one.
+
+      C:\CapabilityPortfolio\               <- project root folder
+          README.md
+          ldap.env.example             <- the template (in git, no real values)
+          ldap.env                     <- YOU CREATE THIS ONE (never in git)
+          backend\
+          frontend\
+          ...
+
+How to create it (PowerShell, on the server):
+
+      cd C:\CapabilityPortfolio
+      Copy-Item ldap.env.example ldap.env
+      notepad ldap.env
+
+In the file, every value IT must supply looks like this:
+
+      LDAP_SERVER=<IT: fill this in, e.g. dc01.company.local>
+
+Replace the whole <...> part, including the < and > signs, with the real value:
+
+      LDAP_SERVER=dc01.company.local
+
+Rules for the file:
+  * One setting per line: NAME=value, with no spaces around the = sign.
+  * Lines starting with # are notes and are ignored.
+  * If a value contains a #, a space or a quote (this can happen in the service account password), put it in
+    single quotes:   LDAP_BIND_PASSWORD='my#pass word'
+    (A single quote inside the value is written as \'  for example  'it\'s'.)
+  * Save it as plain text named exactly ldap.env. Watch out: Notepad may save it as "ldap.env.txt" while Windows
+    hides the .txt. In Notepad's Save dialog choose "All files (*.*)". check-ldap (section 7) shows whether the
+    file was found.
+  * Settings are read when the app starts: after any change, restart the app (section 8).
+  * Order of precedence: a real environment variable of the server wins over ldap.env, and ldap.env wins over
+    .env. Normally nothing else sets these names, so ldap.env is what counts. This is the same for the running
+    app and for every "flask --app wsgi ..." command (check-ldap shows the values really used).
+  * Leave AUTH_MODE=local until check-ldap says "All checks passed".
+
+
+5. EVERY LINE OF ldap.env EXPLAINED
+-----------------------------------
+"Who" = who provides the value. "Needed" = must it be filled in for AUTH_MODE=ldap.
+
+  AUTH_MODE
+     What:    The switch. local = the system's own passwords (today, the demo). ldap = Windows usernames and
+              passwords checked by the company directory.
+     Example: AUTH_MODE=ldap
+     Who:     IT / owner, at go-live.          Needed: yes (default local).
+
+  LDAP_SERVER
+     What:    The name of the directory server (domain controller). Name only: no ldap:// or ldaps://, no port.
+              Several servers, separated by commas, are tried in order (the next one is the backup). Use the name
+              that is on the server's certificate, usually the full name, not an IP address.
+     Example: LDAP_SERVER=dc01.company.local,dc02.company.local
+     Who:     IT.                              Needed: yes.
+
+  LDAP_PORT
+     What:    The port. 636 for ldaps (the usual choice), 389 for starttls.
+     Example: LDAP_PORT=636
+     Who:     IT.                              Needed: no (default 636).
+
+  LDAP_SECURITY
+     What:    How the connection is encrypted. ldaps = encrypted from the start (port 636). starttls = connects on
+              389 and switches to encryption before any password is sent. Plain, unencrypted LDAP is not
+              possible: any other value stops the app with an error.
+     Example: LDAP_SECURITY=ldaps
+     Who:     IT.                              Needed: no (default ldaps).
+
+  LDAP_CA_FILE
+     What:    The full path of the company CA certificate file (section 6). Used to make sure the system is
+              talking to the real domain controller. .cer, .crt or .pem; both the Base-64 and the binary (DER)
+              forms work. A relative path is read from the project folder.
+     Example: LDAP_CA_FILE=C:\CapabilityPortfolio-certs\company-root-ca.cer
+     Who:     IT.                              Needed: yes.
+
+  LDAP_BASE_DN
+     What:    Where the staff accounts are in the directory (the "base DN"). Accounts in sub-folders are found
+              too. For the whole domain write only the DC parts, e.g. DC=company,DC=local.
+     Example: LDAP_BASE_DN=OU=Staff,DC=company,DC=local
+     Who:     IT.                              Needed: yes.
+
+  LDAP_BIND_DN
+     What:    The read-only service account the system uses to find people. Either its full name (DN) or its
+              sign-in name (user@domain).
+     Example: LDAP_BIND_DN=svc-cpc@company.local
+              LDAP_BIND_DN=CN=svc-cpc,OU=Service Accounts,DC=company,DC=local
+     Who:     IT.                              Needed: yes.
+
+  LDAP_BIND_PASSWORD
+     What:    The service account's password. Never shown by the app (check-ldap prints "(set, not shown)") and
+              never written to the logs. Use single quotes if it contains # or spaces.
+     Example: LDAP_BIND_PASSWORD='...'
+     Who:     IT.                              Needed: yes.
+
+  LDAP_USERNAME_ATTRIBUTE
+     What:    The directory field holding the Windows username. sAMAccountName is the standard one in Active
+              Directory. Normally leave it.
+     Example: LDAP_USERNAME_ATTRIBUTE=sAMAccountName
+     Who:     IT (only if different).          Needed: no (default sAMAccountName).
+
+  LDAP_DISPLAY_NAME_ATTRIBUTE
+     What:    The directory field with the person's full name, used to fill in names on "Settings > Users" and
+              to keep them up to date at every sign-in (section 9).
+     Example: LDAP_DISPLAY_NAME_ATTRIBUTE=displayName
+     Who:     IT (only if different).          Needed: no (default displayName).
+
+  LDAP_USERNAME_PATTERN
+     What:    What a Windows username looks like: U followed by digits. Upper or lower case both work. Anything
+              else is refused before the directory is asked. Normally leave it. (It is a "regular expression";
+              one that would accept an empty name is refused.)
+     Example: LDAP_USERNAME_PATTERN=^U[0-9]+$
+     Who:     owner / IT (only if the naming rule changes).   Needed: no (default ^U[0-9]+$).
+
+  LDAP_TIMEOUT_SECONDS
+     What:    How many seconds to wait for a directory server before trying the next one or giving up (1 to 60).
+     Example: LDAP_TIMEOUT_SECONDS=5
+     Who:     IT.                              Needed: no (default 5).
+
+  SESSION_IDLE_MINUTES
+     What:    Sign-out after this many minutes without using the system (at least 1).
+     Example: SESSION_IDLE_MINUTES=30
+     Who:     owner.                           Needed: no (default 30).
+
+  SESSION_ABSOLUTE_HOURS
+     What:    Sign-out this many hours after signing in, even when the system is in use (at least 1).
+     Example: SESSION_ABSOLUTE_HOURS=12
+     Who:     owner.                           Needed: no (default 12).
+
+  BREAK_GLASS_USERNAME
+     What:    The name of the one emergency local admin (section 10). Empty = no emergency account. Must NOT look
+              like a Windows username (not U + digits), must not start with "mock.", 2 to 120 characters:
+              letters, digits and . _ - only.
+     Example: BREAK_GLASS_USERNAME=AILAB   (the owner's choice, 30 Oct 2026; ldap.env.example has it)
+     Who:     owner / IT.                      Needed: no, but strongly recommended. Then run
+                                               set-break-glass-password on the server (section 10).
+
+When AUTH_MODE=ldap and a needed value is missing, still a <IT: fill this in> placeholder, or wrong, the app
+does not start and prints one line saying which setting to fix, for example:
+
+      Configuration error: AUTH_MODE=ldap needs LDAP_SERVER (the directory server name). Set it in ldap.env
+      (see ldap.env.example).
+
+
+6. THE COMPANY CA CERTIFICATE FILE
+----------------------------------
+What it is: the public certificate of the company's certificate authority (CA), the one that signed the domain
+controllers' certificates. It is NOT secret (it holds no private key). The dashboard uses it to check that it
+talks to the real domain controller before sending any password.
+
+How IT can get it (any one of these):
+  * On the CA server:   certutil -ca.cert C:\temp\company-root-ca.cer
+  * On any domain-joined Windows PC: run certlm.msc -> Trusted Root Certification Authorities -> Certificates ->
+    right-click the company root CA -> All Tasks -> Export -> "Base-64 encoded X.509 (.CER)" -> save.
+  * If the domain controllers' certificates come from an intermediate (issuing) CA, the root CA certificate is
+    normally enough. If check-ldap still reports a certificate problem, put the root and the intermediate
+    certificates one after the other in the same Base-64 file.
+  * Do not use a .pfx or .p7b file: export a single .cer as above.
+
+Where to put it: anywhere the app can read, for example C:\CapabilityPortfolio-certs\company-root-ca.cer. Keeping it
+outside the project folder keeps it out of git's way. Then write that path in LDAP_CA_FILE in ldap.env.
+
+When the CA certificate is renewed: replace the file (same path) and restart the app.
+
+
+7. TEST THE CONNECTION (check-ldap) AND WHAT THE ANSWERS MEAN
+-------------------------------------------------------------
+This test can be run while AUTH_MODE is still local: it changes nothing and nobody's sign-in is affected.
+Run it on the server, from the backend folder, with the project's own Python:
+
+      cd C:\CapabilityPortfolio\backend
+      ..\.venv\Scripts\python.exe -m flask --app wsgi check-ldap --username U12345
+
+Use a real Windows username instead of U12345. (Without --username it tests everything except looking a person
+up.) The command uses the same settings as the app: if the server's database settings (APP_PROFILE, ORACLE_...)
+are given to the app as environment variables rather than in .env, set them in the PowerShell window first
+(docs\oracle-migration.md section 5.3).
+
+What a good result looks like:
+
+      Note: AUTH_MODE is local, so sign-in does not use the directory yet. Checking the LDAP settings anyway.
+
+      Settings file:                 C:\CapabilityPortfolio\ldap.env (found)
+      AUTH_MODE:                     local
+      LDAP_SERVER:                   dc01.company.local, dc02.company.local
+      LDAP_PORT:                     636
+      LDAP_SECURITY:                 ldaps
+      LDAP_CA_FILE:                  C:\CapabilityPortfolio-certs\company-root-ca.cer
+      LDAP_BASE_DN:                  OU=Staff,DC=company,DC=local
+      LDAP_BIND_DN:                  svc-cpc@company.local
+      LDAP_BIND_PASSWORD:            (set, not shown)
+      ... (the other settings)
+
+      OK    Server dc01.company.local port 636 answered over ldaps; its certificate is trusted.
+      OK    Server dc02.company.local port 636 answered over ldaps; its certificate is trusted.
+      OK    Service account svc-cpc@company.local signed in.
+      OK    Search base OU=Staff,DC=company,DC=local found.
+      OK    User U12345 found: CN=Jane Smith,OU=Staff,DC=company,DC=local, display name 'Jane Smith'.
+
+      All checks passed.
+
+Every line must say OK. A problem shows as FAIL, followed by "What to check:" in plain words, and the command
+ends with "Error: The directory check failed (see FAIL above)." The checks, in order:
+
+  Step                          FAIL means                                   Usual fix
+  ----------------------------  -------------------------------------------  ------------------------------------------
+  "Settings file ... NOT        ldap.env is not in the project root, or is   Section 4: name it exactly ldap.env, next
+   FOUND"                       called ldap.env.txt                          to README.md
+  "Error: ... is still the      A <IT: fill this in> value was left          Fill in the real value in ldap.env
+   example placeholder"
+  "Error: LDAP_CA_FILE ...      Wrong path, or not a certificate file        Section 6; check the path and the file
+   cannot be read / is not a
+   certificate file"
+  Server ... "server name was   The name in LDAP_SERVER is unknown to DNS    Check spelling; use the full name
+   not found"                                                                (dc01.company.local)
+  Server ... "No answer from    Port closed, firewall, or LDAPS not enabled  Check LDAP_PORT (636 ldaps / 389
+   the server"                  on the domain controller                     starttls) and the firewall
+  Server ... "The secure        Certificate not trusted, or the name in      Check LDAP_CA_FILE, use the name on the
+   connection failed"           LDAP_SERVER is not on the certificate        server's certificate (not an IP address),
+                                (e.g. an IP address was used), or ldaps vs   and LDAP_SECURITY matches the port
+                                starttls mixed up
+  Service account ... "refused  Wrong LDAP_BIND_DN or LDAP_BIND_PASSWORD,    Correct ldap.env; unlock / re-enable the
+   the service account"         or the account is disabled, locked or        account or update its password
+                                expired
+  Search base ... "does not     LDAP_BASE_DN is wrong                        Ask IT for the exact OU path
+   exist"
+  "User U12345 was not found"   The person is outside LDAP_BASE_DN, the      Use a higher base DN (e.g. only
+                                username is wrong, or the username field     DC=company,DC=local), check the
+                                is not sAMAccountName                        username and LDAP_USERNAME_ATTRIBUTE
+  "U... does not match          What was typed is not U + digits             Use a real Windows username
+   LDAP_USERNAME_PATTERN"
+
+With two servers listed, a FAIL on the second one means the backup server does not work: sign-in still works
+through the first, but fix it so the backup is there when it is needed.
+
+
+8. SWITCH IT ON AND RESTART THE APP; THE FIRST ADMIN
+----------------------------------------------------
+Once check-ldap says "All checks passed":
+
+  1. Fill in BREAK_GLASS_USERNAME in ldap.env and set the emergency password first (section 10):
+         cd C:\CapabilityPortfolio\backend
+         ..\.venv\Scripts\python.exe -m flask --app wsgi set-break-glass-password
+  2. In ldap.env change   AUTH_MODE=local   to   AUTH_MODE=ldap   and save.
+  3. Restart the app: stop it and start it again the way it is normally run on the server (its Windows service
+     or scheduled task, or the waitress command in docs\oracle-migration.md section 5). Settings are only read
+     at start.
+  4. If no admin with a Windows username exists yet, create one on the server (no password is asked: they use
+     their Windows password):
+         ..\.venv\Scripts\python.exe -m flask --app wsgi create-user --username U12345 --display-name "Jane Smith" --role ADMIN
+     (Or sign in as the break-glass admin and add the first admin on "Settings > Users".)
+  5. That admin signs in with U12345 and their Windows password and adds everyone else (section 9).
+
+Note: in ldap mode the demo's "mock" accounts are never created and can never sign in, and accounts with a local
+password (for example ones made with create-user before the switch) cannot sign in either. Only Windows usernames
+added in the system, plus the one break-glass account, can.
+
+
+9. USERNAMES (U + DIGITS) AND ADDING PEOPLE ON "USERS & ACCESS"
+---------------------------------------------------------------
+Windows usernames here are the letter U followed by digits, e.g. U12345. People may type any of these on the
+sign-in page; they all mean the same person:
+
+      U12345      u12345      COMPANY\U12345      U12345@company.local
+
+The dashboard removes the domain part, makes the letters capitals and checks the result looks like U + digits
+(LDAP_USERNAME_PATTERN). Anything else gets the normal "Invalid username or password." message without the
+directory even being asked. The dashboard stores the username as U12345.
+
+Adding a person (an admin, in the system):
+  1. Open "Settings > Users" and choose to add a person.
+  2. Type their Windows username (e.g. U12345) and press "Look up": the system asks the directory and fills in
+     their full name. (It also says if the person is already in the list, or if the directory does not know
+     them.)
+  3. Choose the role, and for a head of department tick their departments. Save.
+  4. There is NO password field: they sign in with their Windows password straight away.
+
+Who can sign in = people in this list AND active AND accepted by the directory. Someone with a valid Windows
+account who is not in the list sees the same "Invalid username or password." as for a wrong password (on purpose:
+the page never tells an outsider which part was wrong).
+
+Changing a role or departments works as before and applies on the person's next click.
+
+Names follow the directory (owner request, 30 Oct 2026). Every time a person signs in, the system copies their
+full name from the directory if it has changed (for example after IT corrects a spelling or a name changes). The
+change is written in the person's history ("Name updated from the company directory at sign-in"). So:
+  * IT changes the name in Windows; the system shows the new name from the person's next sign-in.
+  * A name an admin types on "Settings > Users" lasts only until the person's next sign-in: fix names in the
+    directory, not in the system.
+  * If the directory has no full name for someone, the system keeps the name it has.
+  * Only the name is copied. Role, departments and access always stay as the admin set them in the system.
+  * The break-glass account's name ("Emergency admin") never changes.
+
+
+10. THE EMERGENCY (BREAK-GLASS) ADMIN
+-------------------------------------
+What it is: ONE local admin account whose password is kept by the system (not in the directory). It is the
+only account that can sign in when the company directory is down or broken. Its password is never sent to the
+directory. It has the ADMIN role and shows as "Emergency admin".
+
+Turn it on:
+  1. In ldap.env set a name that does not look like a Windows username. The owner chose AILAB (30 Oct 2026),
+     already filled in in ldap.env.example:
+         BREAK_GLASS_USERNAME=AILAB
+  2. On the server, set its password (asked twice, hidden, at least 16 characters). The owner gives it to the
+     person running this command; it is never written in ldap.env or any other file:
+         cd C:\CapabilityPortfolio\backend
+         ..\.venv\Scripts\python.exe -m flask --app wsgi set-break-glass-password
+     The first time, this also creates the account. Both steps are written to the system's history (the
+     password itself never is).
+  3. Restart the app if you changed ldap.env.
+
+Who keeps the password: write it down once, seal it (envelope in a safe, or the company password safe), held by
+IT or the DBA, not by everyday users. Nobody uses it for daily work.
+
+When to use it: only when nobody can sign in through the directory (directory down, certificate expired, service
+account locked) or when no admin is left who can sign in. Sign in with the break-glass name and its password.
+
+Every use is logged: each attempt writes a WARNING line to the app's log ("break-glass sign-in" or "break-glass
+sign-in failed", with the username and the computer's address, never the password). Everything done while
+signed in appears in the system's audit history as "Emergency admin".
+
+After using it: fix the cause, then set a new password (run set-break-glass-password again) and re-seal it.
+Change it also when someone who knew it leaves.
+
+Turn it off: in ldap.env leave the value empty ( BREAK_GLASS_USERNAME= ) and restart. In ldap mode the account
+can then not sign in at all. To be thorough, an admin can also deactivate the "Emergency admin" account on
+"Settings > Users" (deactivated accounts never sign in).
+
+Note: it must stay an ACTIVE account with the ADMIN role, or it cannot help in an emergency.
+set-break-glass-password warns if it is not.
+
+
+11. TIMEOUTS
+------------
+  Directory:  LDAP_TIMEOUT_SECONDS=5   The dashboard waits at most about 5 seconds for each directory server
+                                        (connecting, and each answer). With two servers listed, if the first does
+                                        not answer it tries the second. If none answers, people see "The company
+                                        directory cannot be reached. Try again in a few minutes or contact IT."
+                                        Such a failure does not count as a wrong password, so it never locks
+                                        anybody out.
+  Idle:       SESSION_IDLE_MINUTES=30   Signed out after 30 minutes without using the system.
+  Maximum:    SESSION_ABSOLUTE_HOURS=12 Signed out 12 hours after signing in, even if in use.
+
+To change them: edit the number in ldap.env, save, restart the app. Shorter session times are safer; longer ones
+are more convenient.
+
+Wrong-password protection (unchanged): after 5 wrong passwords for the same username from the same computer
+within 5 minutes, or 20 from one computer, that computer waits a few minutes ("Too many sign-in attempts").
+The Windows account itself may also be locked by the directory's own rules.
+
+
+12. WHEN SOMEONE LEAVES, MOVES JOB OR IS DISABLED
+-------------------------------------------------
+  * IT disables the Windows account (the normal leaver process): from that moment the person cannot sign in to
+    the system again.
+  * If they were signed in at that moment, that session ends by itself within the timeouts: at most 30 minutes
+    after their last click, and at most 12 hours after they signed in. The dashboard does not keep asking the
+    directory during a session (owner decision).
+  * To end it AT ONCE: an admin deactivates the person on "Settings > Users". Their open session stops working on
+    their next click. Doing this for every leaver also keeps the list tidy. People are never deleted, only
+    deactivated, so the history stays complete.
+  * Someone who moves job: the admin changes their role or departments on "Settings > Users" (applies at once). The
+    directory is not involved.
+  * Password changed or expired in Windows: they use the new password; an expired or locked Windows account cannot
+    sign in until IT or the person fixes it the normal Windows way.
+
+
+13. GO-LIVE CHECKLIST
+---------------------
+  [ ] ldap3 and pyasn1 are installed on the server (section 17).
+  [ ] The company CA certificate file is on the server (section 6).
+  [ ] ldap.env created in the project root from ldap.env.example; every <IT: fill this in> replaced (section 4).
+  [ ] ldap.env readable only by the account that runs the app and by administrators (right-click -> Properties ->
+      Security). It is NOT copied into git, email or chat.
+  [ ] check-ldap --username <a real U-number> says "All checks passed" (section 7), for every server listed.
+  [ ] BREAK_GLASS_USERNAME set and set-break-glass-password run; password sealed and stored (section 10).
+  [ ] The dashboard is reached through the company's HTTPS address (the browser must never send the Windows
+      password over plain http).
+  [ ] AUTH_MODE=ldap set in ldap.env and the app restarted (section 8).
+  [ ] The sign-in page shows the hint "Windows username, e.g. U12345".
+  [ ] First admin created with create-user (or through the break-glass account); they can sign in.
+  [ ] Test: a person in "Settings > Users" signs in; a wrong password is refused; a person NOT added is refused;
+      a deactivated person is refused; the break-glass account signs in and its WARNING appears in the log.
+  [ ] Test: with the directory unreachable (e.g. a wrong LDAP_SERVER on a test copy) users see "cannot be reached"
+      and the break-glass account still works. Put the right value back afterwards.
+  [ ] Admins know how to add people (Look up) and to deactivate leavers (sections 9 and 12).
+
+
+14. SWITCHING BACK TO LOCAL MODE IN AN EMERGENCY
+------------------------------------------------
+How: in ldap.env set   AUTH_MODE=local   and restart the app. (The LDAP_* lines can stay; they are ignored.)
+
+Be aware what this does:
+  * Windows usernames (U12345) can NOT sign in in local mode: the system holds no password for them.
+  * Only accounts with a dashboard password can sign in, in practice the break-glass account (it signs in like
+    any other local account in this mode).
+  * So for a directory OUTAGE, local mode does not help normal users: use the break-glass account (which works in
+    ldap mode too) and wait for the directory. Local mode is useful mainly when the ldap.env settings themselves
+    are broken and stop the app from starting.
+  * On a demo copy (SQLite, APP_ENV=local) local mode brings back the demo's mock accounts with their public
+    password. Never do that on a server other people can reach.
+
+Switch back with AUTH_MODE=ldap and a restart once the problem is fixed.
+
+
+15. SECURITY NOTES
+------------------
+  * Encrypted only: every connection to the directory uses LDAPS or STARTTLS. Plain LDAP is not supported at all
+    (the app refuses to start with it), so passwords never cross the network in clear text.
+  * Certificate check: the directory server's certificate must be signed by the company CA in LDAP_CA_FILE and
+    must carry the name in LDAP_SERVER. This stops a fake server from collecting passwords.
+  * Browser to dashboard: the system must be reached over HTTPS (the company entry point), because people type
+    their Windows password into it.
+  * The service account is read-only: an ordinary domain account with no admin rights. It is used only to find
+    people. Each person's password is checked by a separate sign-in as that person, on a new connection.
+  * Empty passwords are refused before the directory is asked (some directories would otherwise treat an empty
+    password as an anonymous sign-in that "succeeds"). Usernames are checked against U + digits and special
+    characters are escaped, so a username cannot change the directory search.
+  * Windows passwords are never stored by the system and never written to its logs. The service account
+    password is never shown (check-ldap prints "(set, not shown)").
+  * ldap.env holds the service account password: it is in .gitignore and must NEVER be committed, emailed or
+    copied off the server. Restrict its file permissions. If it leaks, IT changes the service account password
+    and updates ldap.env.
+  * The service account password: ideally set not to expire; if it must expire, put a reminder to update ldap.env
+    (and restart) before it does, otherwise nobody can sign in that day.
+  * Only one local account (break-glass) bypasses the directory. Its use is logged, and its password is long,
+    sealed and changed after every use.
+  * The same generic "Invalid username or password." is shown for every refusal, so outsiders learn nothing about
+    which usernames exist.
+
+
+16. TROUBLESHOOTING
+-------------------
+  What people see / what happens       Likely cause                              What to do
+  -----------------------------------  ----------------------------------------  ----------------------------------------
+  App does not start: "Configuration   A value in ldap.env is missing, still a   Fix that line in ldap.env (the message
+  error: ... Set it in ldap.env"       placeholder or wrong                      names it); or AUTH_MODE=local to start
+  "The company directory cannot be     No directory server answered, the         Run check-ldap (section 7). The app log
+  reached. Try again in a few          certificate is not trusted, or the        has a line "company directory
+  minutes or contact IT."              service account is refused                unavailable at sign-in" with a hint.
+                                                                                 Meanwhile: break-glass admin.
+  "Invalid username or password."      - not added on Settings > Users, or         - add / reactivate them (section 9)
+  although the password is right         deactivated there
+                                       - Windows account disabled, locked,       - fix it in the directory. The app log
+                                         expired or "must change password"         line "directory refused the sign-in"
+                                                                                   carries AD's code: 52e wrong
+                                                                                   password, 530/531 time or computer
+                                                                                   not allowed, 532 password expired,
+                                                                                   533 disabled, 701 account expired,
+                                                                                   773 must change password, 775 locked
+                                       - not U + digits typed                    - type the Windows username
+                                       - person outside LDAP_BASE_DN             - check-ldap --username U...
+  "Too many sign-in attempts"          5 wrong passwords in 5 minutes            Wait a few minutes; check the password
+  mock.admin etc. do not work          Expected in ldap mode                     Use Windows usernames
+  Old local accounts do not work       Expected: only U-numbers and break-glass  Add the person's U-number instead
+  Look up says "not found"             Typo, or person outside LDAP_BASE_DN      Check the U-number / the base DN
+  Look up: "Enter the person's         Not U + digits                            Type the Windows username
+  Windows username"
+  Settings > Users refuses the break-    By design: managed on the server          set-break-glass-password (section 10)
+  glass name
+  Break-glass does not work            BREAK_GLASS_USERNAME empty, wrong         Check ldap.env; rerun set-break-glass-
+                                       password, or account deactivated / not    password; an admin reactivates it
+                                       ADMIN
+  Everyone signed out every 30 min     Idle timeout                              SESSION_IDLE_MINUTES (section 11)
+  Sign-in worked yesterday, not today  Service account password expired, or the  check-ldap; update LDAP_BIND_PASSWORD
+  for anyone                           CA / domain controller certificate        or LDAP_CA_FILE; restart
+                                       changed
+
+Where the log is: the app writes its log (JSON lines) to its console output, wherever the server's start-up
+captures it. Search it for "fleet.directory", "fleet.auth" or the words above. Passwords are never in it.
+
+
+17. OFFLINE INSTALL (THE AIR-GAPPED SERVER)
+-------------------------------------------
+Directory sign-in needs two extra Python packages. Both are pure Python (no compiler or extra software needed):
+
+      ldap3   2.9.1
+      pyasn1  0.6.4
+
+They are listed in backend\requirements.txt and backend\constraints.txt, so they come with the normal install.
+For the air-gapped server they must be IN THE OFFLINE PACKAGE BUNDLE with all the other packages. On a Windows PC
+with internet and the same Python version as the server (3.12), from the project folder:
+
+      .\.venv\Scripts\python.exe -m pip download -r backend\requirements.txt -c backend\constraints.txt -d offline-packages
+
+Copy the offline-packages folder to the server, then on the server (from the project folder):
+
+      .\.venv\Scripts\python.exe -m pip install --no-index --find-links offline-packages -r backend\requirements.txt -c backend\constraints.txt
+
+Check: .\.venv\Scripts\python.exe -c "import ldap3; print(ldap3.__version__)"   should print 2.9.1.
+
+
+18. FOR DEVELOPERS
+------------------
+  ldap.env.example                 the template IT copies (committed); ldap.env is in .gitignore
+  backend\app\core\config.py       reads ldap.env (load_dotenv before .env) and checks every setting
+  backend\app\security\directory.py  all LDAP code: normalise_username, Directory.authenticate / lookup / check
+  backend\app\security\auth.py     login(): break-glass, empty password and pattern checks, directory, app check
+  backend\app\services\user_service.py  Settings > Users rules in ldap mode, directory_lookup, break-glass password
+  backend\app\cli.py               check-ldap, set-break-glass-password, create-user (no password in ldap mode)
+  docs\api-spec.md                 GET /session/options, GET /users/directory-lookup, 503 DIRECTORY_UNAVAILABLE
+
+Tests never need a real directory: they use ldap3's built-in mock server (MOCK_SYNC) through
+app.config["DIRECTORY_CONNECTION_FACTORY"]. There is deliberately no environment-variable switch for that.

@@ -1,0 +1,12 @@
+/* Printing (and "Save as PDF"): the page content only, on white, with its report header. */
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  body { background: #fff; font-size: 11px; }
+  .sidebar, .topbar, .preview-banner, .toasts, .skip-link, .no-print, .pager button, .actions .btn { display: none !important; }
+  .app-main { padding: 0; }
+  .card, .kpi, .table-wrap { box-shadow: none; break-inside: avoid; }
+  .print-only { display: block !important; }
+  a { text-decoration: none; }
+  .modal-backdrop { position: static; background: none; padding: 0; }
+}
+.print-only { display: none; }

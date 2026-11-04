@@ -1,0 +1,29 @@
+# Local settings and secrets: never committed. Templates: .env.example, ldap.env.example.
+.env
+ldap.env
+oracle-local.env
+
+# Demo / test databases (rebuilt from the seed on first start)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.db-journal
+data/files/
+
+# Python environment (recreated by scripts/run_dev.ps1)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# test artifacts
+test-results/
+playwright-report/
+
+# editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

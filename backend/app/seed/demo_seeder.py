@@ -1,0 +1,299 @@
+"""Seeds the reference lists (every profile, through `seed_reference`) and the brochure-shaped demo world (demo profile
+only). Every record is written with its created/updated stamps and an audit row, like a change made in the app.
+Deterministic: the same day gives the same data."""
+from __future__ import annotations
+
+import json
+import random
+from datetime import date, timedelta
+
+from sqlalchemy import func, select
+
+from ..models import (Asset, AssetStatusHistory, AppRole, AppUser, CapabilityCategory, CapabilityModel,
+                      CapabilityRequirement, Contract, Department, Issue, Milestone, Organization, Project,
+                      ProjectHealthNote, ProjectModel, ProjectRequirement, ProjectType, RequirementModel, Risk,
+                      RolePermission, Site, SpecField, StatusDef, WorkflowStage)
+from ..security.mock_credentials import MOCK_PASSWORD
+from ..services import audit_service, context, user_service
+from . import fixture_data as fx
+from . import reference_data as ref
+
+
+class SeedRefused(RuntimeError):
+    pass
+
+
+def _guard_profile() -> None:
+    if context.settings().profile == "oracle":
+        raise SeedRefused("The demo data is never written to Oracle. Use `flask seed-reference --actor <admin>` there.")
+
+
+def _add(actor, entity):
+    session = context.session()
+    context.stamp_create(entity, actor, context.now())
+    session.add(entity)
+    session.flush()
+    audit_service.record(actor, "CREATE", entity, None, audit_service.snapshot(entity), "Demo data")
+    return entity
+
+
+# ---------------------------------------------------------------- reference data ----------------------------------
+
+
+def seed_roles() -> int:
+    """Roles and their permissions (no actor needed: they exist before any user)."""
+    session = context.session()
+    have = {r.code for r in session.scalars(select(AppRole))}
+    now = context.now()
+    added = 0
+    for order, (code, en, ar, scope, permissions) in enumerate(ref.ROLES):
+        if code in have:
+            continue
+        role = AppRole(code=code, name_en=en, name_ar=ar, scope=scope, is_system=1 if code == "SYS_ADMIN" else 0,
+                       sort_order=order, created_at=now, updated_at=now)
+        role.permission_links = [RolePermission(permission=p, created_at=now) for p in permissions]
+        session.add(role)
+        added += 1
+    session.flush()
+    return added
+
+
+def seed_reference(actor) -> dict:
+    """Lists every installation starts with. Only adds what is missing (by code)."""
+    session = context.session()
+    counts = {}
+
+    def missing(model, code, **where):
+        query = select(model.id).where(model.code == code)
+        for k, v in where.items():
+            query = query.where(getattr(model, k) == v)
+        return session.scalar(query) is None
+
+    n = 0
+    for order, (code, en, ar) in enumerate(ref.DEPARTMENTS):
+        if missing(Department, code):
+            _add(actor, Department(code=code, name_en=en, name_ar=ar, sort_order=order)); n += 1
+    counts["departments"] = n
+    n = 0
+    for order, (code, en, ar) in enumerate(ref.CATEGORIES):
+        if missing(CapabilityCategory, code):
+            _add(actor, CapabilityCategory(code=code, name_en=en, name_ar=ar, sort_order=order)); n += 1
+    counts["categories"] = n
+    n = 0
+    for domain, rows in ref.STATUSES.items():
+        for order, (code, en, ar, color, terminal) in enumerate(rows):
+            if missing(StatusDef, code, domain=domain):
+                _add(actor, StatusDef(domain=domain, code=code, name_en=en, name_ar=ar, color=color,
+                                      is_terminal=terminal, sort_order=order)); n += 1
+    counts["statuses"] = n
+    n = 0
+    for order, (code, en, ar, color, stages) in enumerate(ref.PROJECT_TYPES):
+        if not missing(ProjectType, code):
+            continue
+        ptype = _add(actor, ProjectType(code=code, name_en=en, name_ar=ar, color=color, sort_order=order))
+        for i, (s_en, s_ar) in enumerate(stages, start=1):
+            _add(actor, WorkflowStage(project_type_id=ptype.id, name_en=s_en, name_ar=s_ar, sort_order=i))
+        n += 1
+    counts["projectTypes"] = n
+    n = 0
+    categories = {c.code: c.id for c in session.scalars(select(CapabilityCategory))}
+    for cat_code, fields in ref.SPEC_FIELDS.items():
+        if cat_code not in categories:
+            continue
+        for order, (section, code, en, ar, unit, dtype) in enumerate(fields):
+            if missing(SpecField, code, category_id=categories[cat_code]):
+                _add(actor, SpecField(category_id=categories[cat_code], section=section, code=code, name_en=en,
+                                      name_ar=ar, unit=unit, data_type=dtype, sort_order=order)); n += 1
+    counts["specFields"] = n
+    session.commit()
+    return counts
+
+
+# ---------------------------------------------------------------- demo world --------------------------------------
+
+
+def _readiness(status: str, rnd: random.Random) -> tuple:
+    bands = {
+        "READY": (85, 98), "READY_LIMITED": (68, 80), "TEMP_NOT_READY": (35, 60), "UNDER_MAINTENANCE": (0, 30),
+        "NOT_READY": (0, 15), "AWAITING_REPLACEMENT": (0, 10), "WRITTEN_OFF": (0, 0),
+    }
+    if status not in bands:
+        return None, None, None, None
+    low, high = bands[status]
+    op = rnd.randint(low, high)
+    return (op, min(100, max(0, op + rnd.randint(-6, 8))), min(100, max(0, op + rnd.randint(-10, 4))),
+            min(100, max(0, op + rnd.randint(-3, 10))))
+
+
+def seed_demo() -> dict:
+    _guard_profile()
+    session = context.session()
+    seed_roles()
+    admin_name, admin_display, _, _ = fx.MOCK_USERS[0]
+    admin = user_service.create_user(admin_name, admin_display, "SYS_ADMIN", MOCK_PASSWORD,
+                                     note="Demo account (mock password)")
+    seed_reference(admin)
+    for username, name, role, departments in fx.MOCK_USERS[1:]:
+        dept_ids = [session.scalar(select(Department.id).where(Department.code == c)) for c in departments]
+        user_service.create_user(username, name, role, MOCK_PASSWORD, actor=admin, department_ids=dept_ids,
+                                 note="Demo account (mock password)")
+
+    today = context.today()
+
+    def day(offset: int | None) -> date | None:
+        return None if offset is None else today + timedelta(days=offset)
+
+    dept = {d.code: d.id for d in session.scalars(select(Department))}
+    cat = {c.code: c.id for c in session.scalars(select(CapabilityCategory))}
+    sites = {}
+    for order, (code, en, ar) in enumerate(fx.SITES):
+        sites[code] = _add(admin, Site(code=code, name_en=en, name_ar=ar, sort_order=order)).id
+    orgs = {}
+    for order, (code, en, ar, kind, c_en, c_ar) in enumerate(fx.ORGANIZATIONS):
+        orgs[code] = _add(admin, Organization(code=code, name_en=en, name_ar=ar, kind=kind, country_en=c_en,
+                                              country_ar=c_ar, sort_order=order)).id
+    contracts = {}
+    for code, en, ar, supplier, value, start, end in fx.CONTRACTS:
+        contracts[code] = _add(admin, Contract(code=code, title_en=en, title_ar=ar, supplier_id=orgs[supplier],
+                                               contract_value=value, start_date=day(start), end_date=day(end))).id
+    models = {}
+    for code, en, ar, category, mfr, role_en, role_ar, cost, specs in fx.MODELS:
+        models[code] = _add(admin, CapabilityModel(
+            code=code, name_en=en, name_ar=ar, category_id=cat[category], manufacturer_id=orgs[mfr], role_en=role_en,
+            role_ar=role_ar, unit_cost=cost, specs_json=json.dumps(specs, ensure_ascii=False, sort_keys=True))).id
+    model_category = {code: category for code, _, _, category, *_ in fx.MODELS}
+
+    requirements = {}
+    counters: dict[str, int] = {}
+    serial_no = 1000
+    for code, en, ar, d, c, required, priority, model_codes, letters in fx.REQUIREMENTS:
+        req = CapabilityRequirement(code=code, name_en=en, name_ar=ar, department_id=dept[d], category_id=cat[c],
+                                    required_qty=required, priority=priority, target_date=day(365))
+        req.model_links = [RequirementModel(model_id=models[m], created_at=context.now()) for m in model_codes]
+        requirements[code] = _add(admin, req).id
+        for i, letter in enumerate(letters):
+            model_code = model_codes[i % len(model_codes)]
+            category = model_category[model_code]
+            counters[category] = counters.get(category, 0) + 1
+            asset_code = f"{category}-{counters[category]:03d}"
+            rnd = random.Random(asset_code)
+            status = fx.STATUS_LETTERS[letter]
+            pipeline = status in ("UNDER_ACQUISITION", "UNDER_DEVELOPMENT", "UNDER_TEST")
+            op, tech, mission, maint = _readiness(status, rnd)
+            acquired = None if pipeline else day(-rnd.randint(150, 2100))
+            serial_no += 1
+            site_codes = fx.DEPARTMENT_SITES[d]
+            asset = Asset(
+                code=asset_code,
+                serial_number=None if pipeline else f"SN{serial_no % 97:02d}-{acquired.year}-{rnd.randint(1000, 9999)}",
+                model_id=models[model_code], department_id=dept[d],
+                site_id=sites["TER"] if status == "UNDER_TEST" else sites[site_codes[i % len(site_codes)]],
+                status_code=status, readiness_operational=op, readiness_technical=tech, readiness_mission=mission,
+                readiness_maintenance=maint, acquisition_date=acquired,
+                expected_delivery_date=day(rnd.randint(30, 400)) if pipeline else None,
+                acquisition_method="DEVELOPMENT" if status == "UNDER_DEVELOPMENT" else "DIRECT_CONTRACT",
+                contract_id=contracts.get(fx.MODEL_CONTRACTS.get(model_code)) if not pipeline else None,
+                warranty_end_date=(acquired + timedelta(days=365 * rnd.choice((2, 3, 5)))) if acquired else None,
+                unit_value=next(m[7] for m in fx.MODELS if m[0] == model_code),
+                service_life_years=rnd.choice((8, 10, 12)),
+                operating_hours=None if pipeline else rnd.randint(40, 1400),
+                responsible_en=f"{fx.PEOPLE[rnd.randint(0, len(fx.PEOPLE) - 1)]} / Operations section",
+                responsible_ar="قسم العمليات")
+            _add(admin, asset)
+            # A short status history: acquired ready, then today's status.
+            if acquired:
+                session.add(AssetStatusHistory(asset_id=asset.id, status_code="READY", readiness=95,
+                                               changed_at=context.now() - timedelta(days=(today - acquired).days),
+                                               changed_by=admin.id, note="Entered service"))
+            session.add(AssetStatusHistory(asset_id=asset.id, status_code=status, readiness=op,
+                                           changed_at=context.now() - timedelta(days=rnd.randint(1, 120)),
+                                           changed_by=admin.id, note=None))
+
+    types = {t.code: t for t in session.scalars(select(ProjectType))}
+    stages_by_type = {}
+    for stage in session.scalars(select(WorkflowStage).order_by(WorkflowStage.project_type_id, WorkflowStage.sort_order)):
+        stages_by_type.setdefault(stage.project_type_id, []).append(stage)
+    projects = {}
+    milestone_count = 0
+    for (code, en, ar, ptype, d, c, status, mgr, start, target, forecast, progress, budget, committed, spend,
+         supplier, contract, req_links, model_links, next_en, next_ar) in fx.PROJECTS:
+        stages = stages_by_type[types[ptype].id]
+        current_index = min(len(stages) - 1, int(len(stages) * progress / 100))
+        project = Project(
+            code=code, name_en=en, name_ar=ar, project_type_id=types[ptype].id, department_id=dept[d],
+            category_id=cat[c], status_code=status, stage_id=stages[current_index].id, manager_name=fx.PEOPLE[mgr],
+            supplier_id=orgs.get(supplier), contract_id=contracts.get(contract), budget=budget, committed=committed,
+            actual_spend=spend, progress_pct=progress, start_date=day(start), baseline_end_date=day(target),
+            target_end_date=day(target), forecast_end_date=day(forecast),
+            actual_end_date=day(forecast) if status == "COMPLETED" else None,
+            next_action_en=next_en, next_action_ar=next_ar)
+        project.requirement_links = [ProjectRequirement(requirement_id=requirements[r], quantity=q,
+                                                        created_at=context.now()) for r, q in req_links]
+        project.model_links = [ProjectModel(model_id=models[m], relation=rel, created_at=context.now())
+                               for m, rel in model_links]
+        _add(admin, project)
+        projects[code] = project.id
+        # Milestones: one per workflow stage, spread between start and target; the slip moves the open ones.
+        slip = forecast - target
+        span = max(target - start, len(stages))
+        step = span / len(stages)
+        for i, stage in enumerate(stages):
+            p_start = start + round(i * step)
+            p_end = start + round((i + 1) * step) - 1
+            if i < current_index or status == "COMPLETED":
+                ms_status, ms_progress = "COMPLETED", 100
+                actual = p_end + (random.Random(f"{code}{i}").randint(0, max(1, slip // 2)) if slip > 0 else 0)
+                actual = min(actual, -1) if status != "COMPLETED" else actual
+                ms_forecast = actual
+            elif i == current_index:
+                ms_status = "DELAYED" if slip > 0 else "IN_PROGRESS"
+                ms_progress = min(95, max(5, round((progress / 100 * len(stages) - i) * 100)))
+                actual, ms_forecast = None, p_end + max(slip, 0)
+            else:
+                ms_status, ms_progress, actual, ms_forecast = "NOT_STARTED", 0, None, p_end + max(slip, 0)
+            _add(admin, Milestone(
+                project_id=project.id, stage_id=stage.id, name_en=stage.name_en, name_ar=stage.name_ar,
+                owner_name=fx.PEOPLE[mgr], planned_start_date=day(p_start), planned_end_date=day(max(p_end, p_start)),
+                actual_end_date=day(actual), forecast_end_date=day(ms_forecast), status_code=ms_status,
+                progress_pct=ms_progress, is_major=1 if stage.name_en in fx.MAJOR_STAGES else 0, sort_order=i + 1))
+            milestone_count += 1
+    for code, notes in fx.HEALTH_NOTES.items():
+        for dimension, (rag, r_en, r_ar) in notes.items():
+            _add(admin, ProjectHealthNote(project_id=projects[code], dimension=dimension, rag=rag, reason_en=r_en,
+                                          reason_ar=r_ar))
+    for (code, prj, en, ar, category, p, i, owner, m_en, m_ar, due, status) in fx.RISKS:
+        _add(admin, Risk(code=code, project_id=projects[prj], title_en=en, title_ar=ar, category=category,
+                         probability=p, impact=i, owner_name=fx.PEOPLE[owner], mitigation_en=m_en, mitigation_ar=m_ar,
+                         mitigation_due_date=day(due), status_code=status))
+    for (code, prj, en, ar, severity, owner, raised, target, escalated, status, r_en, r_ar) in fx.ISSUES:
+        _add(admin, Issue(code=code, project_id=projects[prj], title_en=en, title_ar=ar, severity=severity,
+                          owner_name=fx.PEOPLE[owner], raised_date=day(raised), target_date=day(target),
+                          is_escalated=1 if escalated else 0, status_code=status, resolution_en=r_en,
+                          resolution_ar=r_ar))
+    session.commit()
+
+    from ..services import snapshot_service
+    snapshots = snapshot_service.seed_history(admin, months=13)
+    return {"users": len(fx.MOCK_USERS), "models": len(models), "requirements": len(requirements),
+            "assets": sum(counters.values()), "projects": len(projects), "milestones": milestone_count,
+            "risks": len(fx.RISKS), "issues": len(fx.ISSUES), "snapshots": snapshots}
+
+
+def is_empty() -> bool:
+    return not context.session().scalar(select(func.count()).select_from(AppUser))
+
+
+def seed_if_empty() -> dict | None:
+    """Demo start-up: an empty database gets the roles and, on a local machine, the whole demo world."""
+    _guard_profile()
+    from ..core.database import write_intent
+
+    with write_intent():
+        if not is_empty():
+            return None
+        settings = context.settings()
+        if settings.is_ldap or not settings.local_env:
+            seed_roles()
+            context.session().commit()
+            return {"roles": len(ref.ROLES)}
+        return seed_demo()

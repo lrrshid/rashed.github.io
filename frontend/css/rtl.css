@@ -1,0 +1,16 @@
+/* Arabic and right-to-left. main.css uses logical properties, so the layout mirrors by itself; this file holds the
+   Arabic font and what logical properties cannot express (transforms, icons that point along the reading direction).
+   Charts and Gantt timelines keep time running left to right inside their own LTR box, as in the brochure. */
+:root[lang="ar"] {
+  --font: "Noto Sans Arabic CPC", "Inter CPC", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+:root[lang="ar"] body { font-size: 14.5px; }
+:root[dir="rtl"] .icon-flip { transform: scaleX(-1); }
+:root[dir="rtl"] .nav-group > summary .chev { transform: scaleX(-1); }
+:root[dir="rtl"] .nav-group[open] > summary .chev { transform: rotate(90deg); }
+:root[dir="rtl"] .global-search .icon { transform: translateY(-50%) scaleX(-1); }
+:root[dir="rtl"] .meter > span.forecast { background: repeating-linear-gradient(-45deg, var(--chart-2) 0 4px, #a8dcc6 4px 8px); }
+/* Codes, serial numbers and numbers stay left to right inside Arabic text. */
+:root[dir="rtl"] .code, :root[dir="rtl"] .mono { direction: ltr; unicode-bidi: isolate; }
+
+:root[dir="rtl"] .date-field-input { padding-inline: 44px 10px; text-align: right; }
