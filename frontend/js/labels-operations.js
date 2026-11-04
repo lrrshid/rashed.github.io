@@ -1,0 +1,48 @@
+// English strings of testing, maintenance, AI capability, development potential and decision support.
+// Arabic twin: js/i18n/ar/operations.js.
+export default {
+  testing: {
+    title: 'Testing and evaluation', add: 'Test', newTitle: 'New test', editTitle: 'Edit test {code}',
+    kpi: { total: 'Total tests', internal: 'Internal', external: 'External', planned: 'Planned', inProgress: 'In progress',
+      passed: 'Passed', conditional: 'Conditional pass', failed: 'Failed', upcoming90: 'Upcoming (90 days)', passRate: 'Pass rate' },
+    byModel: 'Results by model', timeline: 'Test history', types: { INTERNAL: 'Internal', EXTERNAL: 'External' },
+    fields: { code: 'Test ID', title: 'Test', titleEn: 'Test (English)', titleAr: 'Test (Arabic)', model: 'Model', asset: 'Asset',
+      project: 'Project', type: 'Test type', date: 'Test date', score: 'Score', result: 'Result', resultEn: 'Result (English)',
+      resultAr: 'Result (Arabic)', site: 'Location' },
+  },
+  maintenance: {
+    title: 'Maintenance and technical readiness', add: 'Maintenance order', newTitle: 'New maintenance order', editTitle: 'Edit {code}',
+    kpi: { active: 'Active maintenance', overdue: 'Overdue', partsShortage: 'Spare-part shortages', awaitingParts: 'Awaiting parts',
+      completed: 'Completed', avgDuration: 'Average duration (days)', downtimeDays: 'Downtime (days)', cost: 'Cost' },
+    progress: 'Maintenance in progress', readinessByDept: 'Readiness by department', byCategory: 'Maintenance by capability type',
+    types: { PREVENTIVE: 'Preventive', CORRECTIVE: 'Corrective', INSPECTION: 'Inspection', UPGRADE: 'Upgrade' },
+    fields: { code: 'Order', asset: 'Asset', type: 'Type', title: 'Work', titleEn: 'Work (English)', titleAr: 'Work (Arabic)',
+      start: 'Start', expected: 'Expected completion', actual: 'Actual completion', progress: 'Progress', cost: 'Cost',
+      parts: 'Spare parts', shortage: 'Spare-part shortage', by: 'Performed by', overdue: 'Days overdue', downtime: 'Downtime (days)' },
+  },
+  ai: {
+    title: 'AI capabilities', matrix: 'AI technology matrix', criteria: 'AI capability level criteria', level: 'Level',
+    byDepartment: 'Average level by department', byCategory: 'Average level by platform type', opportunities: 'AI upgrade opportunities',
+    trace: 'How the level is derived', met: 'Met', missing: 'Missing', supported: 'Supported', notSupported: 'Not supported',
+    minSupported: 'At least {n} functions', required: 'Requires: {list}', editTech: 'Edit AI functions', levelOf: 'Level L{n}',
+    noneLevel: 'L0 · No AI', editCriteria: 'Edit criteria',
+  },
+  development: {
+    title: 'Development potential', add: 'Opportunity', newTitle: 'New development opportunity', editTitle: 'Edit {code}',
+    byStatus: 'By status', byType: 'By development type',
+    types: { AI: 'AI upgrade', SENSORS: 'Sensors', ENDURANCE: 'Endurance', COMMUNICATIONS: 'Communications', AUTONOMY: 'Autonomy',
+      PAYLOAD: 'Payload', SECURITY: 'Security', INTEGRATION: 'Integration', OTHER: 'Other' },
+    complexity: { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' },
+    fields: { code: 'ID', model: 'Model', type: 'Development type', title: 'Description', titleEn: 'Description (English)',
+      titleAr: 'Description (Arabic)', benefit: 'Expected benefit', benefitEn: 'Benefit (English)', benefitAr: 'Benefit (Arabic)',
+      complexity: 'Technical complexity', cost: 'Estimated cost', months: 'Duration (months)', priority: 'Priority', project: 'Linked project' },
+  },
+  decision: {
+    title: 'Decision support', subtitle: 'Factual panels drawn from the records; each states its basis and links to the supporting data. No recommendations are generated.',
+    records: '{n} records',
+    panels: { criticalGaps: 'Critical capability gaps', projectsAtRisk: 'Projects at risk', replacement: 'Capabilities requiring replacement',
+      maintenance: 'Maintenance bottlenecks', deliveries: 'Upcoming deliveries', tests: 'Upcoming tests', lowReadiness: 'Readiness by department',
+      budget: 'Budget overruns', warranty: 'Warranties ending', opportunities: 'Unfunded high-priority opportunities',
+      overdueMitigations: 'Overdue risk mitigations' },
+  },
+};

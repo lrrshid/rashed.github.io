@@ -7,11 +7,14 @@ from .lists import (CapabilityCategory, Department, Organization, ProjectType, S
 from .capability import (Asset, AssetStatusHistory, CapabilityModel, CapabilityRequirement, Contract, MetricSnapshot,
                          RequirementModel)
 from .project import Issue, Milestone, Project, ProjectHealthNote, ProjectModel, ProjectRequirement, Risk
+from .operations import (AiLevelCriterion, AiTechnology, DevelopmentOpportunity, MaintenanceOrder, ModelAiTech,
+                         TestEvent)
 
 __all__ = [
     "Base", "ROLE_SYS_ADMIN", "AppRole", "AppSession", "AppSetting", "AppUser", "AuditEvent", "RolePermission",
     "SavedView", "UserDepartment", "CapabilityCategory", "Department", "Organization", "ProjectType", "Site",
     "SpecField", "StatusDef", "WorkflowStage", "Asset", "AssetStatusHistory", "CapabilityModel",
     "CapabilityRequirement", "Contract", "MetricSnapshot", "RequirementModel", "Issue", "Milestone", "Project",
-    "ProjectHealthNote", "ProjectModel", "ProjectRequirement", "Risk",
+    "ProjectHealthNote", "ProjectModel", "ProjectRequirement", "Risk", "AiLevelCriterion", "AiTechnology",
+    "DevelopmentOpportunity", "MaintenanceOrder", "ModelAiTech", "TestEvent",
 ]

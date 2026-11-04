@@ -105,6 +105,20 @@ def seed_reference(actor) -> dict:
                 _add(actor, SpecField(category_id=categories[cat_code], section=section, code=code, name_en=en,
                                       name_ar=ar, unit=unit, data_type=dtype, sort_order=order)); n += 1
     counts["specFields"] = n
+    from ..models import AiLevelCriterion, AiTechnology
+    n = 0
+    for order, (code, en, ar) in enumerate(ref.AI_TECHNOLOGIES):
+        if missing(AiTechnology, code):
+            _add(actor, AiTechnology(code=code, name_en=en, name_ar=ar, sort_order=order)); n += 1
+    counts["aiTechnologies"] = n
+    n = 0
+    have_levels = set(session.scalars(select(AiLevelCriterion.ai_level)))
+    for level, en, ar, d_en, d_ar, minimum, required in ref.AI_LEVELS:
+        if level not in have_levels:
+            _add(actor, AiLevelCriterion(ai_level=level, name_en=en, name_ar=ar, description_en=d_en,
+                                         description_ar=d_ar, min_supported=minimum, required_codes=required or None))
+            n += 1
+    counts["aiLevels"] = n
     session.commit()
     return counts
 
@@ -270,6 +284,7 @@ def seed_demo() -> dict:
                           owner_name=fx.PEOPLE[owner], raised_date=day(raised), target_date=day(target),
                           is_escalated=1 if escalated else 0, status_code=status, resolution_en=r_en,
                           resolution_ar=r_ar))
+    _seed_operations(admin, day, models, projects, dept, sites)
     session.commit()
 
     from ..services import snapshot_service
@@ -297,3 +312,33 @@ def seed_if_empty() -> dict | None:
             context.session().commit()
             return {"roles": len(ref.ROLES)}
         return seed_demo()
+
+
+def _seed_operations(admin, day, models: dict, projects: dict, dept: dict, sites: dict) -> None:
+    """AI functions per model, tests, maintenance orders and development opportunities (fixture_operations)."""
+    from ..models import AiTechnology, DevelopmentOpportunity, MaintenanceOrder, ModelAiTech, TestEvent
+    from . import fixture_operations as ops
+
+    session = context.session()
+    techs = {t.code: t.id for t in session.scalars(select(AiTechnology))}
+    for model_code, codes in ops.MODEL_AI.items():
+        for code in codes:
+            session.add(ModelAiTech(model_id=models[model_code], technology_id=techs[code], created_at=context.now()))
+    session.flush()
+    for (code, en, ar, model, project, d, site, ttype, offset, status, score, r_en, r_ar) in ops.TESTS:
+        _add(admin, TestEvent(code=code, title_en=en, title_ar=ar, model_id=models[model], project_id=projects.get(project),
+                              department_id=dept[d], site_id=sites.get(site), test_type=ttype, test_date=day(offset),
+                              status_code=status, score=score, result_en=r_en, result_ar=r_ar))
+    assets = {a.code: a.id for a in session.scalars(select(Asset))}
+    for (code, asset, mtype, en, ar, status, start, expected, actual, progress, cost, shortage, parts) in ops.MAINTENANCE:
+        if asset not in assets:
+            continue
+        _add(admin, MaintenanceOrder(code=code, asset_id=assets[asset], maint_type=mtype, title_en=en, title_ar=ar,
+                                     status_code=status, start_date=day(start), expected_end_date=day(expected),
+                                     actual_end_date=day(actual), progress_pct=progress, cost=cost,
+                                     parts_shortage=shortage, parts_text=parts, performed_by=fx.PEOPLE[6]))
+    for (code, model, dtype, en, ar, b_en, b_ar, status, complexity, cost, months, priority, project) in ops.DEVELOPMENT:
+        _add(admin, DevelopmentOpportunity(code=code, model_id=models[model], dev_type=dtype, title_en=en, title_ar=ar,
+                                           benefit_en=b_en, benefit_ar=b_ar, status_code=status, complexity=complexity,
+                                           estimated_cost=cost, duration_months=months, priority=priority,
+                                           project_id=projects.get(project)))

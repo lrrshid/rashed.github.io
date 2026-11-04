@@ -11,6 +11,8 @@ const GROUPS = [
   ['requirements', 'registry.tabRequirements', (r) => [h('a', { href: `/requirements/${r.id}`, text: `${r.code} · ${name(r)}` }), refName(r.department)]],
   ['projects', 'nav.projects', (p) => [h('a', { href: `/projects/${p.id}`, text: `${p.code} · ${name(p)}` }), statusBadge('PROJECT', p.status)]],
   ['contracts', 'fields.contract', (c) => [c.code, name(c, 'title'), refName(c.supplier)]],
+  ['tests', 'nav.testing', (e) => [h('a', { href: '/testing', class: 'mono', text: e.code }), name(e, 'title'), refName(e.model), statusBadge('TEST', e.status)]],
+  ['maintenance', 'nav.maintenance', (m) => [h('a', { href: `/assets/${m.asset.id}?tab=maintenance`, class: 'mono', text: m.code }), m.asset.code, name(m, 'title'), statusBadge('MAINTENANCE', m.status)]],
 ];
 
 export async function render(container, ctx) {

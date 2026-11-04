@@ -50,7 +50,7 @@ export async function render(container, ctx) {
         ])),
       actions));
 
-    const tabBar = tabs(['overview', 'acquisition', 'readiness', 'history', 'activity'].map((k) => ({ key: k, label: t(`asset.tabs.${k}`) })), tab, (k) => { tab = k; ctx.setQuery({ tab: k }); load(); });
+    const tabBar = tabs(['overview', 'acquisition', 'readiness', 'history', 'tests', 'maintenance', 'activity'].map((k) => ({ key: k, label: t(`asset.tabs.${k}`) })), tab, (k) => { tab = k; ctx.setQuery({ tab: k }); load(); });
     const body = h('div', { class: 'stack' });
     replace(container, header, h('div', { class: 'section-label' }), tabBar, body);
 
@@ -81,6 +81,20 @@ export async function render(container, ctx) {
         h('li', {}, statusBadge('ASSET', s.status), ' ', formatDateTime(s.changedAt),
           s.readiness !== null ? h('span', { class: 'muted', text: ` · ${formatPercent(s.readiness)}` }) : null,
           s.note ? h('div', { class: 'muted small', text: s.note }) : null))) : h('div', { class: 'empty', text: t('history.empty') })));
+    }
+    if (tab === 'tests') {
+      const data = await api.get('/tests', { asset: asset.id });
+      const byModel = data.items.length ? data : await api.get('/tests', { model: asset.model.id });
+      body.append(card(t('asset.tabs.tests'), h('ul', { class: 'timeline' }, byModel.items.map((e) => h('li', {},
+        h('div', {}, h('strong', { class: 'mono', text: `${e.code} ` }), name(e, 'title'), ' ', statusBadge('TEST', e.status)),
+        h('div', { class: 'muted small', text: `${formatDate(e.testDate)}${e.score !== null ? ` · ${e.score}/100` : ''}` }))))));
+    }
+    if (tab === 'maintenance') {
+      const data = await api.get('/maintenance', { asset: asset.id });
+      body.append(card(t('asset.tabs.maintenance'), data.items.length ? h('ul', { class: 'timeline' }, data.items.map((m) => h('li', {},
+        h('div', {}, h('strong', { class: 'mono', text: `${m.code} ` }), name(m, 'title'), ' ', statusBadge('MAINTENANCE', m.status)),
+        h('div', { class: 'muted small', text: `${formatDate(m.startDate)} → ${formatDate(m.actualEndDate || m.expectedEndDate)} · ${formatPercent(m.progressPct)}` }))))
+        : h('div', { class: 'empty', text: t('history.empty') })));
     }
     if (tab === 'activity') {
       const box = h('div', {}, loadingBox());

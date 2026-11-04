@@ -9,6 +9,7 @@ The app runs on SQLite (`APP_PROFILE=demo`) with the brochure-shaped demo data, 
 | `V001__schema.sql` | `V001__schema.sql` | all tables (security, lists, capability records, projects, history) |
 | (indexes inside V001) | `V002__indexes.sql` | indexes, case-insensitive unique username |
 | (triggers inside V001) | `V003__audit_append_only.sql` | `AUDIT_EVENT` refuses UPDATE and DELETE |
+| `V002__testing_maintenance_ai.sql` | `V004__testing_maintenance_ai.sql` | tests, maintenance orders, AI technologies and levels, development opportunities |
 
 Rule: a schema change is a **new numbered script in both folders** (never edit an applied script), plus its runtime
 grant in section 3 below.
@@ -28,6 +29,7 @@ SQL> WHENEVER SQLERROR EXIT FAILURE
 SQL> @db/oracle/V001__schema.sql
 SQL> @db/oracle/V002__indexes.sql
 SQL> @db/oracle/V003__audit_append_only.sql
+SQL> @db/oracle/V004__testing_maintenance_ai.sql
 ```
 
 Oracle has no `SCHEMA_VERSION` table: record which `V…` scripts were applied in the DBA's change log. At start-up
@@ -70,6 +72,13 @@ GRANT SELECT, INSERT, UPDATE ON milestone TO CPC_APP;
 GRANT SELECT, INSERT, UPDATE ON risk TO CPC_APP;
 GRANT SELECT, INSERT, UPDATE ON issue TO CPC_APP;
 GRANT SELECT, INSERT, DELETE ON metric_snapshot TO CPC_APP;           -- today's snapshot is replaced
+-- V004
+GRANT SELECT, INSERT, UPDATE ON test_event TO CPC_APP;
+GRANT SELECT, INSERT, UPDATE ON maintenance_order TO CPC_APP;
+GRANT SELECT, INSERT, UPDATE ON ai_technology TO CPC_APP;
+GRANT SELECT, INSERT, DELETE ON model_ai_tech TO CPC_APP;              -- a model's AI functions are edited
+GRANT SELECT, INSERT, UPDATE ON ai_level_criterion TO CPC_APP;
+GRANT SELECT, INSERT, UPDATE ON development_opportunity TO CPC_APP;
 -- every sequence
 BEGIN
   FOR s IN (SELECT sequence_name FROM user_sequences) LOOP

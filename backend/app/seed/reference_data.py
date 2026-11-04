@@ -220,3 +220,34 @@ SETTINGS = {
     # Printed in every report header.
     "reports.classification": {"en": "Classification: to be set later", "ar": "التصنيف: يحدد لاحقاً"},
 }
+
+# AI technologies (Settings > AI capability levels edits them) and the level criteria L1-L5.
+AI_TECHNOLOGIES = (
+    ("COMPUTER_VISION", "Computer vision", "الرؤية الحاسوبية"),
+    ("OBJECT_DETECTION", "Object detection", "اكتشاف الأجسام"),
+    ("OBJECT_RECOGNITION", "Object recognition", "التعرف على الأجسام"),
+    ("OBJECT_TRACKING", "Object tracking", "التتبع الآلي للأجسام"),
+    ("AUTONOMOUS_NAVIGATION", "Autonomous navigation", "الملاحة الذاتية"),
+    ("PATH_PLANNING", "Path planning", "تخطيط المسار"),
+    ("OBSTACLE_AVOIDANCE", "Obstacle avoidance", "تجنب الاصطدام"),
+    ("BEHAVIOUR_DETECTION", "Behaviour detection", "اكتشاف السلوك"),
+    ("ANOMALY_DETECTION", "Anomaly detection", "اكتشاف الحالات الشاذة"),
+    ("SENSOR_FUSION", "Sensor fusion", "دمج بيانات المستشعرات"),
+    ("PREDICTIVE_MAINTENANCE", "Predictive maintenance", "الصيانة التنبؤية"),
+    ("SWARM_COORDINATION", "Swarm coordination", "تنسيق الأسراب"),
+    ("MISSION_PLANNING", "Autonomous mission planning", "التخطيط الذاتي للمهام"),
+    ("DECISION_SUPPORT", "Decision support", "دعم القرار"),
+)
+# level, English, Arabic, description EN, description AR, minimum supported, required technology codes
+AI_LEVELS = (
+    (1, "AI assistance", "مساعدة الذكاء الاصطناعي", "At least one AI function assists the operator.",
+     "وظيفة ذكاء اصطناعي واحدة على الأقل تساعد المشغل.", 1, ""),
+    (2, "Partial autonomy", "استقلالية جزئية", "At least 3 functions including object detection.",
+     "3 وظائف على الأقل تشمل اكتشاف الأجسام.", 3, "OBJECT_DETECTION"),
+    (3, "Conditional autonomy", "استقلالية مشروطة", "At least 5 functions including autonomous navigation and obstacle avoidance.",
+     "5 وظائف على الأقل تشمل الملاحة الذاتية وتجنب الاصطدام.", 5, "AUTONOMOUS_NAVIGATION,OBSTACLE_AVOIDANCE"),
+    (4, "High autonomy", "استقلالية عالية", "At least 7 functions including path planning and sensor fusion.",
+     "7 وظائف على الأقل تشمل تخطيط المسار ودمج بيانات المستشعرات.", 7, "PATH_PLANNING,SENSOR_FUSION"),
+    (5, "Full autonomy", "استقلالية كاملة", "At least 10 functions including swarm coordination and decision support.",
+     "10 وظائف على الأقل تشمل تنسيق الأسراب ودعم القرار.", 10, "SWARM_COORDINATION,DECISION_SUPPORT"),
+)

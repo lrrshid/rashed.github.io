@@ -3,6 +3,7 @@
 // from the server in both languages (nameEn / nameAr): pick with name().
 import { language } from './lib/i18n.js';
 import PROJECTS from './labels-projects.js';
+import OPERATIONS from './labels-operations.js';
 
 const EN = {
   app: { name: 'Capability Portfolio Command', short: 'Capability management information system',
@@ -70,9 +71,9 @@ const EN = {
     tabModels: 'Capability models', tabRequirements: 'Capability requirements', addAsset: 'Asset', addModel: 'Model',
     addRequirement: 'Requirement', categoryTitle: '{code} — {name}', assetsCount: '{n} assets',
   },
-  asset: { tabs: { overview: 'Overview', acquisition: 'Acquisition', readiness: 'Readiness', history: 'Status history',
+  asset: { tabs: { overview: 'Overview', acquisition: 'Acquisition', readiness: 'Readiness', history: 'Status history', tests: 'Tests', maintenance: 'Maintenance',
     projects: 'Projects', activity: 'Activity' }, newTitle: 'New asset', editTitle: 'Edit asset {code}' },
-  model: { tabs: { assets: 'Assets', specs: 'Technical capabilities', projects: 'Projects', requirements: 'Requirements',
+  model: { tabs: { assets: 'Assets', specs: 'Technical capabilities', ai: 'AI capability', projects: 'Projects', requirements: 'Requirements',
     activity: 'Activity' }, newTitle: 'New capability model', editTitle: 'Edit model {code}', specsEdit: 'Edit technical capabilities',
     sections: { PERFORMANCE: 'Performance', SENSORS: 'Sensors and payloads', COMMUNICATIONS: 'Communications, navigation and autonomy',
       ENVIRONMENT: 'Environment and operation', OTHER: 'Other' } },
@@ -111,7 +112,7 @@ const EN = {
   placeholder: { title: '{name}', body: 'This module is planned in the build plan and arrives in a later phase. The data model and permissions are ready for it.' },
 };
 
-Object.assign(EN, PROJECTS);
+Object.assign(EN, PROJECTS, OPERATIONS);
 
 // Modules of later phases add their strings here (an English object and its Arabic twin).
 export function extendLabels(en) { Object.assign(EN, en); }
@@ -120,8 +121,8 @@ let AR = null;
 
 export async function loadLanguage() {
   if (language() === 'ar') {
-    const [module, projects] = await Promise.all([import('./i18n/ar/index.js'), import('./i18n/ar/projects.js')]);
-    AR = { ...module.default, ...projects.default };
+    const parts = await Promise.all([import('./i18n/ar/index.js'), import('./i18n/ar/projects.js'), import('./i18n/ar/operations.js')]);
+    AR = Object.assign({}, ...parts.map((m) => m.default));
   }
 }
 

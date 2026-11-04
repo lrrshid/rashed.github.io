@@ -26,9 +26,9 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 | 0 Foundation | config, SQLite/Oracle DB layer, migrations, 9 roles + permission matrix + department scope, admin role preview, audit, LDAP sign-in, sessions/CSRF/throttle, bilingual shell, login | **done** |
 | 1 Capabilities | requirements, models, assets (CRUD, audit, status history), registry with 11 filters + saved views + table/cards, per-category card views, asset / model / requirement profiles, structured technical specs, completion, gap analysis | **done** |
 | 2 Executive dashboard | KPI tiles with month/quarter/year trends, attention list, dept × category matrix, status distribution, completion rings, current vs forecast, gap heatmap, sites, portfolio overview, completion timeline; every figure drills to its records (+ CSV) | **done** |
-| 3 Projects | portfolio, project profile + 6 RAG indicators (health logic done in `project_health.py`), workflows, milestones, Gantt, strategic timeline, risks, issues | next — data model, seed and health rules exist; pages and APIs to build |
-| 4 | testing & evaluation, maintenance & technical readiness, AI capability level, development potential, decision support | to do |
-| 5 | documents (versioned), alert centre (16 types), global search (basic version done), settings UI (lists, statuses, workflows, spec fields, business rules, roles matrix, users) | to do |
+| 3 Projects | portfolio KPIs + charts, project profile with 6 RAG indicators and reasons, workflow path, milestones, project and portfolio Gantt, strategic timeline (month…5 years), risk register with P×I matrix, issues | **done** |
+| 4 Operations | testing & evaluation (KPIs, results by model, history; feeds the project testing indicator), maintenance & technical readiness, AI capability levels L0–L5 with met/missing trace and technology matrix, development potential, decision support (11 factual panels with basis) | **done** |
+| 5 | **next:** documents (versioned), alert centre (16 types), global search (done, incl. tests and maintenance), settings UI (lists, statuses, workflows, spec fields, business rules, roles matrix, users) | to do |
 | 6 | reports: ~130 defined reports, leadership monthly report, custom builder, schedules, PDF/Excel/CSV/PowerPoint | to do (CSV of assets done) |
 | 7 | hardening: Oracle run, phone layouts, Playwright e2e | to do |
 

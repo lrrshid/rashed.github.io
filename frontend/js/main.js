@@ -28,8 +28,8 @@ route('/gantt', () => import('./pages/timeline.js'));
 route('/milestones', () => import('./pages/milestones.js'));
 route('/risks', () => import('./pages/risks.js'));
 route('/issues', () => import('./pages/issues.js'));
-for (const [path, key] of [['/ai', 'aiCapabilities'], ['/development', 'development'], ['/testing', 'testing'], ['/maintenance', 'maintenance'],
-  ['/decision', 'decision'], ['/reports', 'reports'], ['/documents', 'documents'], ['/alerts', 'alerts'],
+for (const path of ['/testing', '/maintenance', '/ai', '/development', '/decision']) route(path, () => import('./pages/operations.js'));
+for (const [path, key] of [['/reports', 'reports'], ['/documents', 'documents'], ['/alerts', 'alerts'],
   ['/settings', 'settings'], ['/audit', 'audit']]) {
   route(path, placeholder, { titleKey: `nav.${key}` });
 }

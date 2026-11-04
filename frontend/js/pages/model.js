@@ -38,7 +38,7 @@ export async function render(container, ctx) {
     const kpis = h('div', { class: 'kpis' },
       kpiTile({ label: t('fields.assets'), value: formatCount(model.assetCounts.total) }),
       ...statuses('ASSET').filter((s) => counts[s.code]).map((s) => kpiTile({ label: name(s), value: formatCount(counts[s.code]) })));
-    const tabBar = tabs(['assets', 'specs', 'requirements', 'activity'].map((k) => ({ key: k, label: t(`model.tabs.${k}`) })), tab, (k) => { tab = k; ctx.setQuery({ tab: k }); load(); });
+    const tabBar = tabs(['assets', 'specs', 'ai', 'requirements', 'activity'].map((k) => ({ key: k, label: t(`model.tabs.${k}`) })), tab, (k) => { tab = k; ctx.setQuery({ tab: k }); load(); });
     const body = h('div', { class: 'stack' });
     replace(container, header, h('div', { class: 'section-label' }), kpis, h('div', { class: 'section-label' }), tabBar, body);
 
@@ -52,6 +52,9 @@ export async function render(container, ctx) {
       const grid = h('div', { class: 'grid grid-2' }, Object.entries(sections).map(([section, list]) => card(t(`model.sections.${section}`),
         dl(list.map((f) => [`${name(f)}${f.unit ? ` (${f.unit})` : ''}`, specValue(model.specs[f.code], f)])))));
       body.append(canEdit('edit.models') ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn', onclick: () => openSpecsForm(model, load) }, icon('edit'), t('model.specsEdit'))) : null, grid);
+    } else if (tab === 'ai') {
+      const { modelAiPanel } = await import('./operations.js');
+      body.append(await modelAiPanel(model, load));
     } else if (tab === 'requirements') {
       const data = await api.get('/requirements');
       body.append(requirementTable(data.items.filter((r) => model.requirementIds.includes(r.id))));
