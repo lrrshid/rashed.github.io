@@ -105,7 +105,7 @@ const EN = {
     trend: '{m} m · {q} q · {y} y', drillTitle: '{title}', drillCount: '{n} records', current: 'Current', pipelineCol: 'Pipeline',
     total: 'Total', readyAssets: 'Ready assets', notReadyAssets: 'Not ready / maintenance',
   },
-  history: { CREATE: 'Created', UPDATE: 'Changed', ARCHIVE: 'Archived', RESTORE: 'Restored', by: 'by {name}',
+  history: { CREATE: 'Created', UPDATE: 'Changed', ARCHIVE: 'Archived', RESTORE: 'Restored', UPLOAD: 'New version uploaded', by: 'by {name}',
     empty: 'No changes recorded yet.', field: '{field}: {from} → {to}' },
   dateField: { placeholder: 'dd/mm/yyyy', invalid: 'Enter the date as dd/mm/yyyy.', choose: 'Choose date',
     chooseFor: 'Choose date: {field}', previousMonth: 'Previous month', nextMonth: 'Next month' },

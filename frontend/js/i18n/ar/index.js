@@ -96,7 +96,7 @@ export default {
     trend: '{m} ش · {q} ر · {y} س', drillTitle: '{title}', drillCount: '{n} سجلات', current: 'حالي', pipelineCol: 'قيد الإعداد',
     total: 'الإجمالي', readyAssets: 'الأصول الجاهزة', notReadyAssets: 'غير جاهز / صيانة',
   },
-  history: { CREATE: 'إنشاء', UPDATE: 'تعديل', ARCHIVE: 'أرشفة', RESTORE: 'استعادة', by: 'بواسطة {name}',
+  history: { CREATE: 'إنشاء', UPDATE: 'تعديل', ARCHIVE: 'أرشفة', RESTORE: 'استعادة', UPLOAD: 'رفع إصدار جديد', by: 'بواسطة {name}',
     empty: 'لا توجد تغييرات مسجلة بعد.', field: '{field}: {from} ← {to}' },
   dateField: { placeholder: '‎يوم/‎شهر/‎سنة', invalid: 'أدخل التاريخ بصيغة يوم/شهر/سنة.', choose: 'اختر التاريخ',
     chooseFor: 'اختر التاريخ: {field}', previousMonth: 'الشهر السابق', nextMonth: 'الشهر التالي' },

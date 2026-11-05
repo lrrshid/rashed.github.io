@@ -30,7 +30,7 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 | 4 Operations | testing & evaluation (KPIs, results by model, history; feeds the project testing indicator), maintenance & technical readiness, AI capability levels L0–L5 with met/missing trace and technology matrix, development potential, decision support (11 factual panels with basis) | **done** |
 | 5 Administration | versioned documents (type checked from the bytes, append-only versions, department scope), alert centre (16 types, role rules, per-user acknowledgement), global search, settings (lists, statuses, workflows with reordering, spec fields, AI levels, business rules, roles and permission matrix, users, alert rules, audit history) | **done** |
 | 6 Reports | 117 predefined reports in 11 categories (EN / AR / bilingual, inheriting permissions and scope, header with generation details, filters and classification), executive summary, monthly leadership report (changes since last month), trend reports, custom report builder with saved templates, scheduled reports (`run-schedules`), run history; exports: Excel (RTL sheets in Arabic), CSV, PowerPoint, PDF / print-ready PDF via the print view | **done** |
-| 7 | **next:** hardening: Oracle run against a real database, phone layouts check, Playwright e2e in EN and AR, SMTP delivery of scheduled reports | to do |
+| 7 Hardening | done: frontend checks without a browser (`scripts/check_frontend.py`: every module compiles, imports resolve, all 521 label keys exist in EN and AR), Oracle script parity tests (every mapped table, column and sequence exists in `db/oracle`). **Still open:** a run against a real Oracle database, a visual pass of the phase 4-6 pages in the browser (EN and AR, desktop and phone), Playwright e2e tests, SMTP delivery of scheduled reports, real PDF rendering beyond the browser print view | partly done |
 
 Pages of later phases already appear in the navigation with a placeholder.
 
@@ -50,4 +50,4 @@ Pages of later phases already appear in the navigation with a placeholder.
 - `take-snapshot` (daily KPI values) · `run-schedules` (daily scheduled reports) · `check-ldap [--username U12345]` · `set-break-glass-password` · `purge-sessions`
 
 ### Tests
-`..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).
+`scriptsun_tests.ps1` runs the unit + integration suite (335 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).

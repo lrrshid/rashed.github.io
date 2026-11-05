@@ -35,6 +35,11 @@ try {
     & $venvPython -m pytest -p no:cacheprovider -rfEx @PytestArgs
     $results += [pscustomobject]@{ Suite = "unit+integration"; ExitCode = $LASTEXITCODE; Seconds = [int]((Get-Date) - $start).TotalSeconds }
 
+    Write-Host "== Frontend checks (module syntax, imports, labels in English and Arabic) ==" -ForegroundColor Cyan
+    $start = Get-Date
+    & $venvPython (Join-Path $root "scripts\check_frontend.py")
+    $results += [pscustomobject]@{ Suite = "frontend"; ExitCode = $LASTEXITCODE; Seconds = [int]((Get-Date) - $start).TotalSeconds }
+
     if ($E2E) {
         Write-Host "== End-to-end browser tests (-m e2e) ==" -ForegroundColor Cyan
         $start = Get-Date
