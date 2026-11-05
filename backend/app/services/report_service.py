@@ -600,7 +600,8 @@ def run_history(actor, limit: int = 50) -> list[dict]:
         query = query.where(ReportRun.run_by == actor.id)
     return [{"id": sid(r.id), "key": r.report_key, "title": r.title, "runAt": iso_utc(r.run_at),
              "by": (session.get(AppUser, r.run_by) or AppUser(display_name="?")).display_name, "language": r.language,
-             "format": r.file_format, "rows": r.row_count, "scheduled": r.schedule_id is not None, "fileName": r.file_name}
+             "format": r.file_format, "rows": r.row_count, "scheduled": r.schedule_id is not None, "fileName": r.file_name,
+             "hasFile": bool(r.file_name and r.schedule_id is not None)}
             for r in session.scalars(query)]
 
 

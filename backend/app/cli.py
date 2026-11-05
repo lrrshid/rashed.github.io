@@ -120,13 +120,13 @@ def register_cli(app: Flask) -> None:
 
     @app.cli.command("run-schedules")
     def run_schedules_cmd():
-        """Generate the scheduled reports that are due (schedule this daily on the server). Files go to data/reports/."""
+        """Generate the scheduled reports that are due (schedule this daily on the server). Files go to REPORTS_OUTPUT_DIR."""
         from .services import schedule_service
 
         with write_intent():
             produced = schedule_service.run_due()
         for item in produced:
-            click.echo(f"{item['schedule']}: {item['file']} (for {', '.join(item['recipients'])})")
+            click.echo(f"{item['schedule']}: {item['file']}")
         click.echo(f"{len(produced)} report(s) generated")
 
     @app.cli.command("set-break-glass-password")

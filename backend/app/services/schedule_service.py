@@ -1,25 +1,35 @@
-"""Scheduled reports: recurring reports by frequency, language, format and recipients.
+"""Scheduled reports: recurring reports by frequency, language and format, written to a folder.
 
-`flask --app wsgi run-schedules` (run it daily from the server's task scheduler) generates every due report as its
-owner would see it (same permissions and department scope), writes the file under data/reports/<date>/, records the
-run, and moves the schedule to its next date. E-mail delivery to the recipients is not connected yet: the files and
-the run log are the delivery record until an SMTP relay is configured."""
+The system runs on an isolated (air-gapped) network: nothing is e-mailed. `flask --app wsgi run-schedules` (run it
+from the server's task scheduler, e.g. every day at 06:00) generates every due report as its owner would see it (same
+permissions and department scope) and writes the file to
+
+    <REPORTS_OUTPUT_DIR>/<schedule output folder>/<run date>/<report file>
+
+REPORTS_OUTPUT_DIR is a local folder or a shared folder on the local network. Every run is recorded in the report
+history, where the file can also be downloaded from the application."""
 from __future__ import annotations
 
 import re
 from datetime import date, timedelta
+from pathlib import Path
 
 from sqlalchemy import select
 
-from ..core.config import DATA_DIR
 from ..exceptions import NotFound, ValidationFailed
-from ..models import AppUser, ReportSchedule, ReportTemplate
+from ..models import AppUser, ReportRun, ReportSchedule, ReportTemplate
 from ..models.reports import FILE_FORMATS, FREQUENCIES, LANGUAGES
 from ..schemas.dto import record_meta, sid
 from ..security.auth import PERM_REPORTS_SCHEDULE, can_admin, require_permission, user_load_options
 from . import context, crud, report_export, report_service
 
-EMAIL_RE = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
+# A folder name: letters (Latin or Arabic), digits, spaces, - and _. No dots or slashes, so it cannot leave the
+# reports output directory.
+FOLDER_RE = re.compile(r"^[\w؀-ۿ][\w؀-ۿ \-]{0,79}$")
+
+
+def output_root() -> Path:
+    return Path(context.settings().reports_dir)
 
 
 def next_date(current: date, frequency: str) -> date:
@@ -31,8 +41,7 @@ def next_date(current: date, frequency: str) -> date:
     month = current.month - 1 + months
     year = current.year + month // 12
     month = month % 12 + 1
-    day = min(current.day, 28)
-    return date(year, month, day)
+    return date(year, month, min(current.day, 28))
 
 
 def schedule_dto(s: ReportSchedule) -> dict:
@@ -44,8 +53,8 @@ def schedule_dto(s: ReportSchedule) -> dict:
         tpl = context.session().get(ReportTemplate, s.template_id)
         title = {"en": tpl.name, "ar": tpl.name} if tpl else None
     return {"id": sid(s.id), "name": s.name, "reportKey": s.report_key, "templateId": sid(s.template_id), "report": title,
-            "frequency": s.frequency, "language": s.language, "format": s.file_format, "sendTime": s.send_time,
-            "recipients": s.recipients.split(","), "nextRunDate": s.next_run_date.isoformat(), "active": bool(s.is_active),
+            "frequency": s.frequency, "language": s.language, "format": s.file_format, "runTime": s.run_time,
+            "outputFolder": s.output_folder, "nextRunDate": s.next_run_date.isoformat(), "active": bool(s.is_active),
             "ownerId": sid(s.owner_id), **record_meta(s)}
 
 
@@ -77,18 +86,15 @@ def _validate(data: dict) -> dict:
             if value not in allowed:
                 raise ValidationFailed.field(key, f"Must be one of: {', '.join(allowed)}.")
             out[attr] = value
-    if "sendTime" in data:
-        if not re.fullmatch(r"([01][0-9]|2[0-3]):[0-5][0-9]", str(data["sendTime"] or "")):
-            raise ValidationFailed.field("sendTime", "Use HH:MM (24-hour).")
-        out["send_time"] = data["sendTime"]
-    if "recipients" in data:
-        recipients = [r.strip() for r in (data["recipients"] or []) if r and r.strip()]
-        if not recipients or any(not EMAIL_RE.match(r) for r in recipients):
-            raise ValidationFailed.field("recipients", "Give one or more e-mail addresses.")
-        joined = ",".join(recipients)
-        if len(joined) > 1000:
-            raise ValidationFailed.field("recipients", "Too many recipients.")
-        out["recipients"] = joined
+    if "runTime" in data:
+        if not re.fullmatch(r"([01][0-9]|2[0-3]):[0-5][0-9]", str(data["runTime"] or "")):
+            raise ValidationFailed.field("runTime", "Use HH:MM (24-hour).")
+        out["run_time"] = data["runTime"]
+    if "outputFolder" in data:
+        folder = str(data["outputFolder"] or "").strip()
+        if not FOLDER_RE.match(folder):
+            raise ValidationFailed.field("outputFolder", "Use a folder name of letters, digits, spaces, - and _ only.")
+        out["output_folder"] = folder
     if "nextRunDate" in data:
         try:
             out["next_run_date"] = date.fromisoformat(str(data["nextRunDate"]))
@@ -105,7 +111,7 @@ def save_schedule(actor, data: dict, schedule_id: int | None = None) -> dict:
     if schedule_id is None:
         values.setdefault("next_run_date", context.today() + timedelta(days=1))
         values.setdefault("is_active", 1)
-        required = ("name", "frequency", "language", "file_format", "send_time", "recipients")
+        required = ("name", "frequency", "language", "file_format", "run_time", "output_folder")
         missing = [k for k in required if k not in values]
         if missing or not (values.get("report_key") or values.get("template_id")):
             raise ValidationFailed("Please correct the highlighted fields.",
@@ -120,11 +126,10 @@ def save_schedule(actor, data: dict, schedule_id: int | None = None) -> dict:
     return schedule_dto(s)
 
 
-def run_due(today: date | None = None, out_dir=None) -> list[dict]:
+def run_due(today: date | None = None) -> list[dict]:
     """Generate every active schedule due today or earlier. Returns what was produced."""
     session = context.session()
     today = today or context.today()
-    out_dir = out_dir or (DATA_DIR / "reports" / today.isoformat())
     produced = []
     due = list(session.scalars(select(ReportSchedule).where(ReportSchedule.is_active == 1,
                                                             ReportSchedule.next_run_date <= today)))
@@ -132,25 +137,38 @@ def run_due(today: date | None = None, out_dir=None) -> list[dict]:
         owner = session.scalars(select(AppUser).where(AppUser.id == s.owner_id).options(*user_load_options())).one()
         if not owner.active:
             continue
-        lang = "BILINGUAL" if s.language == "BILINGUAL" else s.language
         key = s.report_key or f"template-{s.template_id}"
-        result = report_service.run_report(owner, key, lang, s.file_format, log=False)
+        result = report_service.run_report(owner, key, s.language, s.file_format, log=False)
         if s.file_format == "HTML":
             content = _html(result).encode("utf-8")
             name = report_export.file_name(result, "html")
         else:
             exporter, _, ext = report_export.EXPORTERS[s.file_format]
-            content = exporter(result, lang)
+            content = exporter(result, s.language)
             name = report_export.file_name(result, ext)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / name).write_bytes(content)
-        report_service.log_run(owner, result, lang, s.file_format, schedule_id=s.id, file_name=name)
+        relative = Path(s.output_folder) / today.isoformat() / name
+        target = output_root() / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        report_service.log_run(owner, result, s.language, s.file_format, schedule_id=s.id, file_name=relative.as_posix())
         s = session.get(ReportSchedule, s.id)
         s.next_run_date = next_date(max(s.next_run_date, today), s.frequency)
         s.updated_at = context.now()
         session.commit()
-        produced.append({"schedule": s.name, "file": str(out_dir / name), "recipients": s.recipients.split(",")})
+        produced.append({"schedule": s.name, "file": str(target)})
     return produced
+
+
+def stored_file(actor, run_id: int) -> tuple[ReportRun, Path]:
+    """The file a scheduled run wrote, for download from the report history (owner or administrator)."""
+    run = context.session().get(ReportRun, run_id)
+    if run is None or not run.file_name or run.schedule_id is None or (run.run_by != actor.id and not can_admin(actor)):
+        raise NotFound("That report file was not found.")
+    root = output_root().resolve()
+    path = (root / run.file_name).resolve()
+    if root not in path.parents or not path.is_file():
+        raise NotFound("That report file is no longer in the reports folder.")
+    return run, path
 
 
 def _html(result: dict) -> str:

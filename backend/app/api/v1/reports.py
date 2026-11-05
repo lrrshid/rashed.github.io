@@ -1,7 +1,7 @@
 """Reports: catalogue, run, export (CSV, Excel, PowerPoint), custom builder and templates, schedules, run history."""
 from __future__ import annotations
 
-from flask import Response, jsonify, request
+from flask import Response, jsonify, request, send_file
 
 from ...exceptions import ValidationFailed
 from ...schemas.common import ApiModel, Query
@@ -25,6 +25,15 @@ def list_reports():
 def report_history():
     Query(request.args, set())
     return jsonify({"items": report_service.run_history(user())})
+
+
+@bp.get("/reports/history/<int:run_id>/file")
+@permission_required(PERM_REPORTS_VIEW)
+def scheduled_file(run_id: int):
+    """A file a scheduled report wrote to the reports folder (the owner of the schedule or an administrator)."""
+    Query(request.args, set())
+    run, path = schedule_service.stored_file(user(), run_id)
+    return send_file(path, as_attachment=True, download_name=path.name, max_age=0)
 
 
 @bp.get("/reports/<key>")

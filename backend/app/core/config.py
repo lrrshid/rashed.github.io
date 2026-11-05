@@ -114,6 +114,9 @@ class Settings:
     ldap_username_pattern: str = DEFAULT_USERNAME_PATTERN
     ldap_timeout_seconds: int = 5
     break_glass_username: str | None = None  # the one local emergency ADMIN in ldap mode; None = switched off
+    # Where scheduled reports are written (a local folder or a shared folder on the local network; the system is
+    # air-gapped and never sends e-mail). REPORTS_OUTPUT_DIR; relative paths are relative to the project folder.
+    reports_dir: str = str(DATA_DIR / "reports")
 
     @property
     def data_mode(self) -> str:
@@ -317,8 +320,12 @@ def load_settings(profile: str | None = None, overrides: dict | None = None) -> 
     if session_idle < 1 or session_absolute < 1:
         raise ConfigError("SESSION_IDLE_MINUTES and SESSION_ABSOLUTE_HOURS must be at least 1.")
 
+    reports_dir = Path(_env("REPORTS_OUTPUT_DIR", str(DATA_DIR / ("reports-test" if profile == "test" else "reports"))))
+    if not reports_dir.is_absolute():
+        reports_dir = PROJECT_ROOT / reports_dir
     common = dict(
         profile=profile,
+        reports_dir=str(reports_dir),
         timezone=timezone,
         session_idle_minutes=session_idle,
         session_absolute_hours=session_absolute,

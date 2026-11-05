@@ -176,19 +176,19 @@ export async function render(container, ctx) {
       const d = await api.get('/report-schedules');
       const reportOptions = data.items.map((r) => ({ value: r.key, label: name(r, 'title') }));
       const open = (s) => formDialog({ title: s ? s.name : t('reports.schedules.newTitle'), size: 'md', withReason: Boolean(s),
-        values: s ? { name: s.name, reportKey: s.reportKey, frequency: s.frequency, language: s.language, format: s.format, sendTime: s.sendTime,
-          recipients: s.recipients.join(', '), nextRunDate: s.nextRunDate, active: s.active } : { frequency: 'WEEKLY', language: 'EN', format: 'XLSX', sendTime: '07:00', active: true },
+        values: s ? { name: s.name, reportKey: s.reportKey, frequency: s.frequency, language: s.language, format: s.format, runTime: s.runTime,
+          outputFolder: s.outputFolder, nextRunDate: s.nextRunDate, active: s.active } : { frequency: 'WEEKLY', language: 'EN', format: 'XLSX', runTime: '07:00', outputFolder: 'Reports', active: true },
         spec: [{ key: 'name', label: t('reports.schedules.name'), required: true, max: 120 },
           { key: 'reportKey', label: t('reports.schedules.report'), type: 'select', required: true, options: reportOptions },
           { key: 'frequency', label: t('reports.schedules.frequency'), type: 'select', required: true, options: ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY'].map((f) => ({ value: f, label: t(`reports.schedules.freq.${f}`) })) },
           { key: 'language', label: t('reports.schedules.language'), type: 'select', required: true, options: LANGS.map((l) => ({ value: l, label: t(`reports.lang.${l}`) })) },
           { key: 'format', label: t('reports.schedules.format'), type: 'select', required: true, options: ['XLSX', 'CSV', 'PPTX', 'HTML'].map((f) => ({ value: f, label: f })) },
-          { key: 'sendTime', label: t('reports.schedules.time'), required: true, max: 5, dir: 'ltr' },
+          { key: 'runTime', label: t('reports.schedules.time'), required: true, max: 5, dir: 'ltr' },
+          { key: 'outputFolder', label: t('reports.schedules.folder'), required: true, max: 80 },
           { key: 'nextRunDate', label: t('reports.schedules.next'), type: 'date' },
-          { key: 'active', label: t('reports.schedules.active'), type: 'bool' },
-          { key: 'recipients', label: t('reports.schedules.recipients'), type: 'textarea', span: true, dir: 'ltr', max: 1000 }],
+          { key: 'active', label: t('reports.schedules.active'), type: 'bool' }],
         submit: (v) => {
-          const payload = { ...v, recipients: String(v.recipients || '').split(/[,;\s]+/).filter(Boolean), active: v.active !== false };
+          const payload = { ...v, active: v.active !== false };
           return s ? api.patch(`/report-schedules/${s.id}`, { ...payload, version: s.version }) : api.post('/report-schedules', payload);
         },
         onSaved: schedules });
@@ -200,8 +200,8 @@ export async function render(container, ctx) {
         { key: 'f', label: t('reports.schedules.frequency'), render: (s) => t(`reports.schedules.freq.${s.frequency}`) },
         { key: 'l', label: t('reports.schedules.language'), render: (s) => t(`reports.lang.${s.language}`) },
         { key: 'fmt', label: t('reports.schedules.format'), render: (s) => s.format },
-        { key: 't', label: t('reports.schedules.time'), render: (s) => h('span', { class: 'mono', text: s.sendTime }) },
-        { key: 'rc', label: t('reports.schedules.recipients'), render: (s) => s.recipients.join(', ') },
+        { key: 't', label: t('reports.schedules.time'), render: (s) => h('span', { class: 'mono', text: s.runTime }) },
+        { key: 'o', label: t('reports.schedules.folder'), render: (s) => s.outputFolder },
         { key: 'nx', label: t('reports.schedules.next'), render: (s) => formatDate(s.nextRunDate) },
         { key: 'a', label: t('reports.schedules.active'), render: (s) => h('span', { class: `badge ${s.active ? 'c-green' : 'c-grey'}`, text: s.active ? t('common.yes') : t('common.no') }) },
         { key: 'e', label: '', render: (s) => h('button', { type: 'button', class: 'btn btn-sm', onclick: () => open(s) }, icon('edit')) },
@@ -221,6 +221,8 @@ export async function render(container, ctx) {
         { key: 'f', label: t('reports.history.format'), render: (r) => r.format },
         { key: 'n', label: t('reports.history.rows'), num: true, render: (r) => String(r.rows) },
         { key: 's', label: t('reports.history.scheduled'), render: (r) => (r.scheduled ? t('common.yes') : '') },
+        { key: 'file', label: t('reports.history.file'), render: (r) => (r.hasFile ? h('button', { type: 'button', class: 'btn btn-sm',
+          onclick: () => download(`/reports/history/${r.id}/file`).catch((e) => toast(e.message, true)) }, icon('download'), t('reports.history.download')) : null) },
       ], d.items));
     } catch (e) { replace(body, errorBox(e, history)); }
   }

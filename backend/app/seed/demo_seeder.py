@@ -400,13 +400,11 @@ def _seed_schedules(admin, day) -> None:
     """The three scheduled reports shown in the brochure."""
     from ..models import ReportSchedule
 
-    for name, key, freq, lang, fmt, time, recipients, offset in (
-            ("Monthly leadership report", "leadership-monthly", "MONTHLY", "BILINGUAL", "PPTX", "07:00",
-             "command.office@example.gov", 26),
-            ("Delayed projects report", "projects-delayed", "WEEKLY", "EN", "XLSX", "08:00", "pmo@example.gov", 22),
-            ("Maintenance status report", "maintenance-active", "DAILY", "AR", "XLSX", "06:30",
-             "maintenance.cell@example.gov", 19)):
+    for name, key, freq, lang, fmt, time, folder, offset in (
+            ("Monthly leadership report", "leadership-monthly", "MONTHLY", "BILINGUAL", "PPTX", "07:00", "Command office", 26),
+            ("Delayed projects report", "projects-delayed", "WEEKLY", "EN", "XLSX", "08:00", "Project office", 22),
+            ("Maintenance status report", "maintenance-active", "DAILY", "AR", "XLSX", "06:30", "Maintenance", 19)):
         _add(admin, ReportSchedule(name=name, report_key=key, frequency=freq, language=lang, file_format=fmt,
-                                   send_time=time, recipients=recipients, next_run_date=day(offset), is_active=1,
+                                   run_time=time, output_folder=folder, next_run_date=day(offset), is_active=1,
                                    owner_id=admin.id))
     context.session().commit()

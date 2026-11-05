@@ -68,21 +68,36 @@ def test_templates_and_schedules(admin):
     run = admin.get(f"/api/v1/reports/template-{tpl.get_json()['id']}")
     assert run.status_code == 200
     sched = admin.post("/api/v1/report-schedules", json={"name": "Weekly risks", "reportKey": "risks-critical", "frequency": "WEEKLY",
-                                                         "language": "AR", "format": "XLSX", "sendTime": "07:30",
-                                                         "recipients": ["pmo@example.gov"]})
+                                                         "language": "AR", "format": "XLSX", "runTime": "07:30",
+                                                         "outputFolder": "مكتب المشاريع"})
     assert sched.status_code == 201, sched.get_json()
-    bad = admin.post("/api/v1/report-schedules", json={"name": "x", "reportKey": "risks-critical", "frequency": "WEEKLY",
-                                                       "language": "AR", "format": "XLSX", "sendTime": "25:00", "recipients": ["nope"]})
-    assert bad.status_code == 400
+    for bad_folder in ("../escape", "a/b", "..", ""):
+        bad = admin.post("/api/v1/report-schedules", json={"name": "x", "reportKey": "risks-critical", "frequency": "WEEKLY",
+                                                           "language": "AR", "format": "XLSX", "runTime": "07:30",
+                                                           "outputFolder": bad_folder})
+        assert bad.status_code == 400, bad_folder
+    bad_time = admin.post("/api/v1/report-schedules", json={"name": "x", "reportKey": "risks-critical", "frequency": "WEEKLY",
+                                                            "language": "AR", "format": "XLSX", "runTime": "25:00",
+                                                            "outputFolder": "Reports"})
+    assert bad_time.status_code == 400
 
 
-def test_due_schedules_produce_files(app, tmp_path):
+def test_due_schedules_write_files_to_the_reports_folder_and_can_be_downloaded(app, admin, tmp_path):
     from datetime import timedelta
+    from pathlib import Path
 
-    from app.services import context, schedule_service
     from app.core.database import write_intent
+    from app.services import context, schedule_service
+    app.config["SETTINGS"].reports_dir = str(tmp_path)
     with app.test_request_context("/"):
         with write_intent():
-            produced = schedule_service.run_due(context.today() + timedelta(days=40), out_dir=tmp_path)
+            produced = schedule_service.run_due(context.today() + timedelta(days=40))
     assert len(produced) == 3
-    assert all((tmp_path / p["file"].split("\\")[-1].split("/")[-1]).exists() for p in produced)
+    assert all(Path(p["file"]).is_file() and tmp_path in Path(p["file"]).parents for p in produced)
+    assert {Path(p["file"]).parents[1].name for p in produced} == {"Command office", "Project office", "Maintenance"}
+    runs = [r for r in admin.json("/api/v1/reports/history")["items"] if r["hasFile"]]
+    assert len(runs) == 3
+    res = admin.get(f"/api/v1/reports/history/{runs[0]['id']}/file")
+    assert res.status_code == 200 and len(res.data) > 100
+    viewer_runs = admin.get("/api/v1/reports/history/999999/file")
+    assert viewer_runs.status_code == 404

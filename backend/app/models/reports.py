@@ -34,8 +34,8 @@ class ReportSchedule(AuditedMixin, Base):
     frequency: Mapped[str] = mapped_column(String(10), nullable=False)
     language: Mapped[str] = mapped_column(String(10), nullable=False)
     file_format: Mapped[str] = mapped_column(String(10), nullable=False)
-    send_time: Mapped[str] = mapped_column(String(5), nullable=False)
-    recipients: Mapped[str] = mapped_column(String(1000), nullable=False)
+    run_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    output_folder: Mapped[str] = mapped_column(String(80), nullable=False)
     next_run_date: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     owner_id: Mapped[int] = user_fk()
@@ -53,4 +53,4 @@ class ReportRun(Base):
     language: Mapped[str] = mapped_column(String(10), nullable=False)
     file_format: Mapped[str] = mapped_column(String(10), nullable=False)
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    file_name: Mapped[str | None] = mapped_column(String(200))
+    file_name: Mapped[str | None] = mapped_column(String(300))  # path under the reports output directory

@@ -133,4 +133,4 @@ Uploaded files are stored on the application server under `data/files/<first two
 
 ## 7. Scheduled reports
 
-Run `flask --app wsgi run-schedules` once a day (Windows Task Scheduler) and `flask --app wsgi take-snapshot` once a day for the KPI trends. Generated files go to `data/reports/<date>/`. E-mail delivery is not connected yet: connect an SMTP relay before relying on the recipients list.
+Run `flask --app wsgi run-schedules` once a day (Windows Task Scheduler) and `flask --app wsgi take-snapshot` once a day for the KPI trends. Generated files go to `REPORTS_OUTPUT_DIR/<output folder>/<date>/` (a local folder or a shared folder on the local network; the system is air-gapped and sends no e-mail) and can be downloaded from Reports > Report history.

@@ -14,6 +14,9 @@ the LDAP sign-in are inherited from github.com/MAZ-1234/ship-project.
 - Demo sign-in: `mock.admin`, `mock.exec`, `mock.head` (Group 2 only), `mock.capability`, `mock.pm`, `mock.maint`, `mock.test`, `mock.analyst`, `mock.viewer`; password `Mock-Pass-123`.
 
 ## Rules
+- The system runs on an **air-gapped** local network: nothing may need the internet (no e-mail/SMTP, no CDN, no
+  online APIs, no runtime downloads). Scheduled reports go to `REPORTS_OUTPUT_DIR` and the report history; Python
+  packages install from `wheelhouse\` (`scripts/build_wheelhouse.ps1`); third-party files are vendored.
 - Permissions are enforced server-side through the helpers in `backend/app/security/auth.py` (`has_permission`,
   `require_edit`, `require_admin`, `department_scope`, `require_department_access`). Never compare role codes elsewhere.
   Roles and their permissions are data (`APP_ROLE`, `ROLE_PERMISSION`); a role's scope is ALL or DEPARTMENT

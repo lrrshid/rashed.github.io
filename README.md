@@ -17,6 +17,22 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 `data/cpc-demo.db` and seeds the fictional demo world (4 departments, 4 categories, 12 models, 66 assets,
 15 requirements, 14 projects, 140 milestones, risks, issues, 13 months of KPI history).
 
+## Air-gapped installation (the target network has no internet)
+
+Everything runs on the local network: the application server, the database (SQLite demo or Oracle), the company
+directory (LDAP) and the browsers. There is no e-mail, no CDN and no online service; fonts and icons are in the project.
+
+1. On a machine **with** internet access, once: `powershell -ExecutionPolicy Bypass -File scripts\build_wheelhouse.ps1`
+   (all pinned Python packages for Windows 64-bit / Python 3.12 into `wheelhouse\`; add `-Production` for runtime
+   packages only).
+2. Copy to the air-gapped server: the project folder **with** `wheelhouse\`, and the Python 3.12 Windows installer.
+3. On the server: install Python 3.12, `copy .env.example .env`, then `scripts\run_dev.ps1`. It installs only from
+   `wheelhouse\` (`pip --no-index`), never from the internet.
+4. Scheduled reports are written to `REPORTS_OUTPUT_DIR` (default `data\reports`; can be a shared folder on the local
+   network such as `\\fileserver\CPC-Reports`), one sub-folder per schedule and date, and can be downloaded from
+   Reports > Report history. Schedule `flask --app wsgi run-schedules` and `flask --app wsgi take-snapshot` daily
+   with the Windows Task Scheduler.
+
 ## Handover: read this first
 
 ### Build plan and state (4 Nov 2026)
@@ -30,7 +46,7 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 | 4 Operations | testing & evaluation (KPIs, results by model, history; feeds the project testing indicator), maintenance & technical readiness, AI capability levels L0–L5 with met/missing trace and technology matrix, development potential, decision support (11 factual panels with basis) | **done** |
 | 5 Administration | versioned documents (type checked from the bytes, append-only versions, department scope), alert centre (16 types, role rules, per-user acknowledgement), global search, settings (lists, statuses, workflows with reordering, spec fields, AI levels, business rules, roles and permission matrix, users, alert rules, audit history) | **done** |
 | 6 Reports | 117 predefined reports in 11 categories (EN / AR / bilingual, inheriting permissions and scope, header with generation details, filters and classification), executive summary, monthly leadership report (changes since last month), trend reports, custom report builder with saved templates, scheduled reports (`run-schedules`), run history; exports: Excel (RTL sheets in Arabic), CSV, PowerPoint, PDF / print-ready PDF via the print view | **done** |
-| 7 Hardening | done: frontend checks without a browser (`scripts/check_frontend.py`: every module compiles, imports resolve, all 521 label keys exist in EN and AR), Oracle script parity tests (every mapped table, column and sequence exists in `db/oracle`). **Still open:** a run against a real Oracle database, a visual pass of the phase 4-6 pages in the browser (EN and AR, desktop and phone), Playwright e2e tests, SMTP delivery of scheduled reports, real PDF rendering beyond the browser print view | partly done |
+| 7 Hardening | air-gapped: no e-mail anywhere (scheduled reports go to a folder and the report history), offline installation from `wheelhouse\\` (`scripts/build_wheelhouse.ps1`, verified with `pip --no-index`); done: frontend checks without a browser (`scripts/check_frontend.py`: every module compiles, imports resolve, all 521 label keys exist in EN and AR), Oracle script parity tests (every mapped table, column and sequence exists in `db/oracle`). **Still open:** a run against a real Oracle database, a visual pass of the phase 4-6 pages in the browser (EN and AR, desktop and phone), Playwright e2e tests, real PDF rendering beyond the browser print view | partly done |
 
 Pages of later phases already appear in the navigation with a placeholder.
 

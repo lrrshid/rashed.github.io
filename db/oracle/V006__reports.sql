@@ -1,4 +1,4 @@
--- Custom report templates, scheduled reports and the report run log. Twin of db/sqlite/V004__reports.sql.
+-- Custom report templates, scheduled reports and the report run log (scheduled reports are written to a folder). Twin of db/sqlite/V004__reports.sql.
 
 CREATE SEQUENCE report_template_seq START WITH 1 INCREMENT BY 1 NOCACHE;
 CREATE TABLE report_template (
@@ -32,8 +32,8 @@ CREATE TABLE report_schedule (
     frequency       VARCHAR2(10 CHAR)   NOT NULL,
     language        VARCHAR2(10 CHAR)   NOT NULL,
     file_format     VARCHAR2(10 CHAR)   NOT NULL,
-    send_time       VARCHAR2(5 CHAR)    NOT NULL,
-    recipients      VARCHAR2(1000 CHAR) NOT NULL,
+    run_time        VARCHAR2(5 CHAR)    NOT NULL,
+    output_folder   VARCHAR2(80 CHAR)   NOT NULL,
     next_run_date   DATE                NOT NULL,
     is_active       NUMBER(1)           DEFAULT 1 NOT NULL,
     owner_id        NUMBER(19,0)        NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE report_schedule (
     CONSTRAINT ck_report_schedule_freq CHECK (frequency IN ('DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY')),
     CONSTRAINT ck_report_schedule_lang CHECK (language IN ('EN', 'AR', 'BILINGUAL')),
     CONSTRAINT ck_report_schedule_format CHECK (file_format IN ('XLSX', 'CSV', 'PPTX', 'HTML')),
-    CONSTRAINT ck_report_schedule_time CHECK (REGEXP_LIKE(send_time, '^[0-2][0-9]:[0-5][0-9]$')),
+    CONSTRAINT ck_report_schedule_time CHECK (REGEXP_LIKE(run_time, '^[0-2][0-9]:[0-5][0-9]$')),
     CONSTRAINT ck_report_schedule_date CHECK (next_run_date = TRUNC(next_run_date)),
     CONSTRAINT ck_report_schedule_active CHECK (is_active IN (0, 1)),
     CONSTRAINT fk_report_schedule_template FOREIGN KEY (template_id) REFERENCES report_template (id),
@@ -67,7 +67,7 @@ CREATE TABLE report_run (
     language        VARCHAR2(10 CHAR)   NOT NULL,
     file_format     VARCHAR2(10 CHAR)   NOT NULL,
     row_count       NUMBER(10,0)        DEFAULT 0 NOT NULL,
-    file_name       VARCHAR2(200 CHAR),
+    file_name       VARCHAR2(300 CHAR),
     CONSTRAINT pk_report_run PRIMARY KEY (id),
     CONSTRAINT ck_report_run_lang CHECK (language IN ('EN', 'AR', 'BILINGUAL')),
     CONSTRAINT ck_report_run_format CHECK (file_format IN ('SCREEN', 'XLSX', 'CSV', 'PPTX', 'HTML', 'PRINT')),
