@@ -29,8 +29,8 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 | 3 Projects | portfolio KPIs + charts, project profile with 6 RAG indicators and reasons, workflow path, milestones, project and portfolio Gantt, strategic timeline (month…5 years), risk register with P×I matrix, issues | **done** |
 | 4 Operations | testing & evaluation (KPIs, results by model, history; feeds the project testing indicator), maintenance & technical readiness, AI capability levels L0–L5 with met/missing trace and technology matrix, development potential, decision support (11 factual panels with basis) | **done** |
 | 5 Administration | versioned documents (type checked from the bytes, append-only versions, department scope), alert centre (16 types, role rules, per-user acknowledgement), global search, settings (lists, statuses, workflows with reordering, spec fields, AI levels, business rules, roles and permission matrix, users, alert rules, audit history) | **done** |
-| 6 | **next:** reports: ~130 defined reports, leadership monthly report, custom builder, schedules, PDF/Excel/CSV/PowerPoint | to do (CSV of assets done) |
-| 7 | hardening: Oracle run, phone layouts, Playwright e2e | to do |
+| 6 Reports | 117 predefined reports in 11 categories (EN / AR / bilingual, inheriting permissions and scope, header with generation details, filters and classification), executive summary, monthly leadership report (changes since last month), trend reports, custom report builder with saved templates, scheduled reports (`run-schedules`), run history; exports: Excel (RTL sheets in Arabic), CSV, PowerPoint, PDF / print-ready PDF via the print view | **done** |
+| 7 | **next:** hardening: Oracle run against a real database, phone layouts check, Playwright e2e in EN and AR, SMTP delivery of scheduled reports | to do |
 
 Pages of later phases already appear in the navigation with a placeholder.
 
@@ -47,7 +47,7 @@ Pages of later phases already appear in the navigation with a placeholder.
 
 ### Commands (from `backend/`)
 - `flask --app wsgi check-schema` · `create-user --username U12345 --role SYS_ADMIN` · `seed-reference --actor U12345`
-- `take-snapshot` (daily KPI values) · `check-ldap [--username U12345]` · `set-break-glass-password` · `purge-sessions`
+- `take-snapshot` (daily KPI values) · `run-schedules` (daily scheduled reports) · `check-ldap [--username U12345]` · `set-break-glass-password` · `purge-sessions`
 
 ### Tests
 `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).

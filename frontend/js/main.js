@@ -9,8 +9,6 @@ import { renderLogin } from './pages/login.js';
 import { route, setNavigateHandler, startRouter } from './router.js';
 import { renderSidebar, renderTopbar, setAlertCount } from './shell.js';
 
-const placeholder = () => import('./pages/placeholder.js');
-
 route('/', () => import('./pages/dashboard.js'), { nav: 'home' });
 route('/analytics', () => import('./pages/dashboard.js'), { nav: 'home', analytics: true });
 route('/capabilities', () => import('./pages/registry.js'));
@@ -33,9 +31,7 @@ route('/documents', () => import('./pages/documents.js'));
 route('/alerts', () => import('./pages/alerts.js'));
 route('/settings', () => import('./pages/settings.js'));
 route('/audit', () => import('./pages/settings.js'));
-for (const [path, key] of [['/reports', 'reports']]) {
-  route(path, placeholder, { titleKey: `nav.${key}` });
-}
+route('/reports', () => import('./pages/reports.js'));
 
 export function registerRoute(path, loader, meta) { route(path, loader, meta); }
 

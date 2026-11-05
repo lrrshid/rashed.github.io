@@ -28,3 +28,4 @@ playwright-report/
 Thumbs.db
 .DS_Store
 data/files-test/
+data/reports/

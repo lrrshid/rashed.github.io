@@ -100,4 +100,5 @@ def user():
 
 
 # Route modules register themselves on `bp`.
-from . import admin, capabilities, dashboard, documents_alerts, health, operations, projects, session, users  # noqa: E402,F401
+from . import (admin, capabilities, dashboard, documents_alerts, health, operations, projects, reports,  # noqa: E402,F401
+               session, users)

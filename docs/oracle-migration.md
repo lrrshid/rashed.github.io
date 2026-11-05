@@ -11,6 +11,7 @@ The app runs on SQLite (`APP_PROFILE=demo`) with the brochure-shaped demo data, 
 | (triggers inside V001) | `V003__audit_append_only.sql` | `AUDIT_EVENT` refuses UPDATE and DELETE |
 | `V002__testing_maintenance_ai.sql` | `V004__testing_maintenance_ai.sql` | tests, maintenance orders, AI technologies and levels, development opportunities |
 | `V003__documents_alerts.sql` | `V005__documents_alerts.sql` | versioned documents (append-only versions), alert rules and acknowledgements |
+| `V004__reports.sql` | `V006__reports.sql` | custom report templates, report schedules, report run log |
 
 Rule: a schema change is a **new numbered script in both folders** (never edit an applied script), plus its runtime
 grant in section 3 below.
@@ -32,6 +33,7 @@ SQL> @db/oracle/V002__indexes.sql
 SQL> @db/oracle/V003__audit_append_only.sql
 SQL> @db/oracle/V004__testing_maintenance_ai.sql
 SQL> @db/oracle/V005__documents_alerts.sql
+SQL> @db/oracle/V006__reports.sql
 ```
 
 Oracle has no `SCHEMA_VERSION` table: record which `V…` scripts were applied in the DBA's change log. At start-up
@@ -86,6 +88,10 @@ GRANT SELECT, INSERT, UPDATE ON document TO CPC_APP;
 GRANT SELECT, INSERT ON document_version TO CPC_APP;                 -- append-only
 GRANT SELECT, INSERT, UPDATE ON alert_rule TO CPC_APP;
 GRANT SELECT, INSERT ON alert_ack TO CPC_APP;
+-- V006
+GRANT SELECT, INSERT, UPDATE ON report_template TO CPC_APP;
+GRANT SELECT, INSERT, UPDATE ON report_schedule TO CPC_APP;
+GRANT SELECT, INSERT ON report_run TO CPC_APP;
 -- every sequence
 BEGIN
   FOR s IN (SELECT sequence_name FROM user_sequences) LOOP
@@ -124,3 +130,7 @@ password. The emergency account is set with `flask --app wsgi set-break-glass-pa
 ## 6. Document files
 
 Uploaded files are stored on the application server under `data/files/<first two hex>/<sha256>` (one copy per content). Include that folder in the server backup together with the database.
+
+## 7. Scheduled reports
+
+Run `flask --app wsgi run-schedules` once a day (Windows Task Scheduler) and `flask --app wsgi take-snapshot` once a day for the KPI trends. Generated files go to `data/reports/<date>/`. E-mail delivery is not connected yet: connect an SMTP relay before relying on the recipients list.

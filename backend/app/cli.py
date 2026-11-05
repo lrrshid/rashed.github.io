@@ -118,6 +118,17 @@ def register_cli(app: Flask) -> None:
             n = snapshot_service.take(admin)
         click.echo(f"Stored {n} values for today")
 
+    @app.cli.command("run-schedules")
+    def run_schedules_cmd():
+        """Generate the scheduled reports that are due (schedule this daily on the server). Files go to data/reports/."""
+        from .services import schedule_service
+
+        with write_intent():
+            produced = schedule_service.run_due()
+        for item in produced:
+            click.echo(f"{item['schedule']}: {item['file']} (for {', '.join(item['recipients'])})")
+        click.echo(f"{len(produced)} report(s) generated")
+
     @app.cli.command("set-break-glass-password")
     def set_break_glass_password_cmd():
         """Create the emergency local SYS_ADMIN (BREAK_GLASS_USERNAME in ldap.env) if missing and set its password from

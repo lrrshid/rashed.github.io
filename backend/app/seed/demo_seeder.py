@@ -289,6 +289,7 @@ def seed_demo() -> dict:
     _seed_operations(admin, day, models, projects, dept, sites)
     session.commit()
     _seed_documents(admin, models, projects)
+    _seed_schedules(admin, day)
 
     from ..services import snapshot_service
     snapshots = snapshot_service.seed_history(admin, months=13)
@@ -393,3 +394,19 @@ def _seed_documents(admin, models: dict, projects: dict) -> None:
             doc.current_version = number
         session.flush()
     session.commit()
+
+
+def _seed_schedules(admin, day) -> None:
+    """The three scheduled reports shown in the brochure."""
+    from ..models import ReportSchedule
+
+    for name, key, freq, lang, fmt, time, recipients, offset in (
+            ("Monthly leadership report", "leadership-monthly", "MONTHLY", "BILINGUAL", "PPTX", "07:00",
+             "command.office@example.gov", 26),
+            ("Delayed projects report", "projects-delayed", "WEEKLY", "EN", "XLSX", "08:00", "pmo@example.gov", 22),
+            ("Maintenance status report", "maintenance-active", "DAILY", "AR", "XLSX", "06:30",
+             "maintenance.cell@example.gov", 19)):
+        _add(admin, ReportSchedule(name=name, report_key=key, frequency=freq, language=lang, file_format=fmt,
+                                   send_time=time, recipients=recipients, next_run_date=day(offset), is_active=1,
+                                   owner_id=admin.id))
+    context.session().commit()
