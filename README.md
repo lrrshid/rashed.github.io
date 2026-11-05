@@ -50,4 +50,4 @@ Pages of later phases already appear in the navigation with a placeholder.
 - `take-snapshot` (daily KPI values) · `run-schedules` (daily scheduled reports) · `check-ldap [--username U12345]` · `set-break-glass-password` · `purge-sessions`
 
 ### Tests
-`scriptsun_tests.ps1` runs the unit + integration suite (335 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).
+`scripts\run_tests.ps1` runs the unit + integration suite (335 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).
