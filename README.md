@@ -28,8 +28,8 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 | 2 Executive dashboard | KPI tiles with month/quarter/year trends, attention list, dept × category matrix, status distribution, completion rings, current vs forecast, gap heatmap, sites, portfolio overview, completion timeline; every figure drills to its records (+ CSV) | **done** |
 | 3 Projects | portfolio KPIs + charts, project profile with 6 RAG indicators and reasons, workflow path, milestones, project and portfolio Gantt, strategic timeline (month…5 years), risk register with P×I matrix, issues | **done** |
 | 4 Operations | testing & evaluation (KPIs, results by model, history; feeds the project testing indicator), maintenance & technical readiness, AI capability levels L0–L5 with met/missing trace and technology matrix, development potential, decision support (11 factual panels with basis) | **done** |
-| 5 | **next:** documents (versioned), alert centre (16 types), global search (done, incl. tests and maintenance), settings UI (lists, statuses, workflows, spec fields, business rules, roles matrix, users) | to do |
-| 6 | reports: ~130 defined reports, leadership monthly report, custom builder, schedules, PDF/Excel/CSV/PowerPoint | to do (CSV of assets done) |
+| 5 Administration | versioned documents (type checked from the bytes, append-only versions, department scope), alert centre (16 types, role rules, per-user acknowledgement), global search, settings (lists, statuses, workflows with reordering, spec fields, AI levels, business rules, roles and permission matrix, users, alert rules, audit history) | **done** |
+| 6 | **next:** reports: ~130 defined reports, leadership monthly report, custom builder, schedules, PDF/Excel/CSV/PowerPoint | to do (CSV of assets done) |
 | 7 | hardening: Oracle run, phone layouts, Playwright e2e | to do |
 
 Pages of later phases already appear in the navigation with a placeholder.

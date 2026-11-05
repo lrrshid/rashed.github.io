@@ -4,6 +4,7 @@
 import { language } from './lib/i18n.js';
 import PROJECTS from './labels-projects.js';
 import OPERATIONS from './labels-operations.js';
+import ADMIN from './labels-admin.js';
 
 const EN = {
   app: { name: 'Capability Portfolio Command', short: 'Capability management information system',
@@ -112,7 +113,7 @@ const EN = {
   placeholder: { title: '{name}', body: 'This module is planned in the build plan and arrives in a later phase. The data model and permissions are ready for it.' },
 };
 
-Object.assign(EN, PROJECTS, OPERATIONS);
+Object.assign(EN, PROJECTS, OPERATIONS, ADMIN);
 
 // Modules of later phases add their strings here (an English object and its Arabic twin).
 export function extendLabels(en) { Object.assign(EN, en); }
@@ -121,7 +122,7 @@ let AR = null;
 
 export async function loadLanguage() {
   if (language() === 'ar') {
-    const parts = await Promise.all([import('./i18n/ar/index.js'), import('./i18n/ar/projects.js'), import('./i18n/ar/operations.js')]);
+    const parts = await Promise.all([import('./i18n/ar/index.js'), import('./i18n/ar/projects.js'), import('./i18n/ar/operations.js'), import('./i18n/ar/admin.js')]);
     AR = Object.assign({}, ...parts.map((m) => m.default));
   }
 }

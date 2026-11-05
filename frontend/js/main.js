@@ -29,8 +29,11 @@ route('/milestones', () => import('./pages/milestones.js'));
 route('/risks', () => import('./pages/risks.js'));
 route('/issues', () => import('./pages/issues.js'));
 for (const path of ['/testing', '/maintenance', '/ai', '/development', '/decision']) route(path, () => import('./pages/operations.js'));
-for (const [path, key] of [['/reports', 'reports'], ['/documents', 'documents'], ['/alerts', 'alerts'],
-  ['/settings', 'settings'], ['/audit', 'audit']]) {
+route('/documents', () => import('./pages/documents.js'));
+route('/alerts', () => import('./pages/alerts.js'));
+route('/settings', () => import('./pages/settings.js'));
+route('/audit', () => import('./pages/settings.js'));
+for (const [path, key] of [['/reports', 'reports']]) {
   route(path, placeholder, { titleKey: `nav.${key}` });
 }
 

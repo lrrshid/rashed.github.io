@@ -9,6 +9,7 @@ from .capability import (Asset, AssetStatusHistory, CapabilityModel, CapabilityR
 from .project import Issue, Milestone, Project, ProjectHealthNote, ProjectModel, ProjectRequirement, Risk
 from .operations import (AiLevelCriterion, AiTechnology, DevelopmentOpportunity, MaintenanceOrder, ModelAiTech,
                          TestEvent)
+from .documents import AlertAck, AlertRule, Document, DocumentVersion
 
 __all__ = [
     "Base", "ROLE_SYS_ADMIN", "AppRole", "AppSession", "AppSetting", "AppUser", "AuditEvent", "RolePermission",
@@ -16,5 +17,6 @@ __all__ = [
     "SpecField", "StatusDef", "WorkflowStage", "Asset", "AssetStatusHistory", "CapabilityModel",
     "CapabilityRequirement", "Contract", "MetricSnapshot", "RequirementModel", "Issue", "Milestone", "Project",
     "ProjectHealthNote", "ProjectModel", "ProjectRequirement", "Risk", "AiLevelCriterion", "AiTechnology",
-    "DevelopmentOpportunity", "MaintenanceOrder", "ModelAiTech", "TestEvent",
+    "DevelopmentOpportunity", "MaintenanceOrder", "ModelAiTech", "TestEvent", "AlertAck", "AlertRule", "Document",
+    "DocumentVersion",
 ]

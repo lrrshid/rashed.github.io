@@ -10,6 +10,7 @@ The app runs on SQLite (`APP_PROFILE=demo`) with the brochure-shaped demo data, 
 | (indexes inside V001) | `V002__indexes.sql` | indexes, case-insensitive unique username |
 | (triggers inside V001) | `V003__audit_append_only.sql` | `AUDIT_EVENT` refuses UPDATE and DELETE |
 | `V002__testing_maintenance_ai.sql` | `V004__testing_maintenance_ai.sql` | tests, maintenance orders, AI technologies and levels, development opportunities |
+| `V003__documents_alerts.sql` | `V005__documents_alerts.sql` | versioned documents (append-only versions), alert rules and acknowledgements |
 
 Rule: a schema change is a **new numbered script in both folders** (never edit an applied script), plus its runtime
 grant in section 3 below.
@@ -30,6 +31,7 @@ SQL> @db/oracle/V001__schema.sql
 SQL> @db/oracle/V002__indexes.sql
 SQL> @db/oracle/V003__audit_append_only.sql
 SQL> @db/oracle/V004__testing_maintenance_ai.sql
+SQL> @db/oracle/V005__documents_alerts.sql
 ```
 
 Oracle has no `SCHEMA_VERSION` table: record which `V…` scripts were applied in the DBA's change log. At start-up
@@ -79,6 +81,11 @@ GRANT SELECT, INSERT, UPDATE ON ai_technology TO CPC_APP;
 GRANT SELECT, INSERT, DELETE ON model_ai_tech TO CPC_APP;              -- a model's AI functions are edited
 GRANT SELECT, INSERT, UPDATE ON ai_level_criterion TO CPC_APP;
 GRANT SELECT, INSERT, UPDATE ON development_opportunity TO CPC_APP;
+-- V005
+GRANT SELECT, INSERT, UPDATE ON document TO CPC_APP;
+GRANT SELECT, INSERT ON document_version TO CPC_APP;                 -- append-only
+GRANT SELECT, INSERT, UPDATE ON alert_rule TO CPC_APP;
+GRANT SELECT, INSERT ON alert_ack TO CPC_APP;
 -- every sequence
 BEGIN
   FOR s IN (SELECT sequence_name FROM user_sequences) LOOP
@@ -113,3 +120,7 @@ password. The emergency account is set with `flask --app wsgi set-break-glass-pa
 * The `status_def` domain column is `status_domain` (DOMAIN is a keyword from Oracle 23ai).
 * Thin mode by default; `ORACLE_THICK_MODE=true` + `ORACLE_CLIENT_LIB_DIR` for Native Network Encryption or
   databases older than 12.1.
+
+## 6. Document files
+
+Uploaded files are stored on the application server under `data/files/<first two hex>/<sha256>` (one copy per content). Include that folder in the server backup together with the database.

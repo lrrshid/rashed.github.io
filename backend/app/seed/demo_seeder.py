@@ -119,6 +119,8 @@ def seed_reference(actor) -> dict:
                                          description_ar=d_ar, min_supported=minimum, required_codes=required or None))
             n += 1
     counts["aiLevels"] = n
+    from ..services import alert_service
+    counts["alertRules"] = alert_service.ensure_rules(actor)
     session.commit()
     return counts
 
@@ -286,6 +288,7 @@ def seed_demo() -> dict:
                           resolution_ar=r_ar))
     _seed_operations(admin, day, models, projects, dept, sites)
     session.commit()
+    _seed_documents(admin, models, projects)
 
     from ..services import snapshot_service
     snapshots = snapshot_service.seed_history(admin, months=13)
@@ -342,3 +345,51 @@ def _seed_operations(admin, day, models: dict, projects: dict, dept: dict, sites
                                            benefit_en=b_en, benefit_ar=b_ar, status_code=status, complexity=complexity,
                                            estimated_cost=cost, duration_months=months, priority=priority,
                                            project_id=projects.get(project)))
+
+
+# code, English, Arabic, type, linked type, linked code, versions (file name, note)
+DOCUMENTS = (
+    ("DOC-001", "Falcon-X technical datasheet", "نشرة البيانات الفنية لفالكون-إكس", "DATASHEET", "CAPABILITY_MODEL", "M001",
+     (("falcon-x-datasheet.pdf", "Initial issue"), ("falcon-x-datasheet-rev2.pdf", "Endurance figures updated"))),
+    ("DOC-002", "Falcon-X airframe replacement contract", "عقد استبدال هياكل فالكون-إكس", "CONTRACT", "PROJECT", "PRJ-006",
+     (("ct-2025-003.pdf", None),)),
+    ("DOC-003", "Factory acceptance test plan", "خطة اختبار القبول في المصنع", "TEST_REPORT", "PROJECT", "PRJ-006",
+     (("fat-plan.pdf", None), ("fat-plan-v2.pdf", "Rescheduled"))),
+    ("DOC-004", "Wide-area reconnaissance business case", "دراسة الجدوى لأسطول الاستطلاع", "REPORT", "PROJECT", "PRJ-001",
+     (("business-case.pdf", None),)),
+    ("DOC-005", "Swarm simulation results", "نتائج محاكاة الأسراب", "TEST_REPORT", "PROJECT", "PRJ-011",
+     (("swarm-sim-results.csv", "Run 14"),)),
+    ("DOC-006", "Ranger-6 operator manual", "دليل مشغل رينجر-6", "MANUAL", "CAPABILITY_MODEL", "M006",
+     (("ranger-6-manual.pdf", None),)),
+    ("DOC-007", "Wave Runner coastal trial report", "تقرير التجربة الساحلية لويف رانر", "TEST_REPORT", "PROJECT", "PRJ-007",
+     (("coastal-trial.pdf", None),)),
+    ("DOC-008", "Rimora ROV inspection certificate", "شهادة فحص ريمورا ROV", "CERTIFICATE", "CAPABILITY_MODEL", "M011",
+     (("rimora-certificate.pdf", None),)),
+)
+
+
+def _seed_documents(admin, models: dict, projects: dict) -> None:
+    from ..models import Document, DocumentVersion
+    from ..services import document_service
+
+    session = context.session()
+    for code, en, ar, dtype, etype, ecode, versions in DOCUMENTS:
+        entity_id = models[ecode] if etype == "CAPABILITY_MODEL" else projects[ecode]
+        department_id = session.get(Project, entity_id).department_id if etype == "PROJECT" else None
+        doc = _add(admin, Document(code=code, title_en=en, title_ar=ar, doc_type=dtype, entity_type=etype,
+                                   entity_id=entity_id, department_id=department_id, current_version=0))
+        for number, (file_name, note) in enumerate(versions, start=1):
+            if file_name.endswith(".csv"):
+                data = f"run,aircraft,conflicts\n14,6,0\n14,8,3\n# {en} (fictional demo data)\n".encode()
+                ctype = "text/csv"
+            else:
+                data = (b"%PDF-1.4\n% Demonstration document (fictional): " + en.encode()
+                        + f" v{number}\n".encode() + b"%%EOF\n")
+                ctype = "application/pdf"
+            digest = document_service._store(data)
+            session.add(DocumentVersion(document_id=doc.id, version_no=number, file_name=file_name, content_type=ctype,
+                                        size_bytes=len(data), sha256=digest, note=note, uploaded_at=context.now(),
+                                        uploaded_by=admin.id))
+            doc.current_version = number
+        session.flush()
+    session.commit()
