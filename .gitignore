@@ -33,3 +33,6 @@ data/reports/
 # Offline Python packages for the air-gapped network (built by scripts/build_wheelhouse.ps1)
 wheelhouse/
 data/reports-test/
+
+# Temporary work folder (never committed)
+.work/

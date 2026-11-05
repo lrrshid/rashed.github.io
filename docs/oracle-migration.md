@@ -134,3 +134,19 @@ Uploaded files are stored on the application server under `data/files/<first two
 ## 7. Scheduled reports
 
 Run `flask --app wsgi run-schedules` once a day (Windows Task Scheduler) and `flask --app wsgi take-snapshot` once a day for the KPI trends. Generated files go to `REPORTS_OUTPUT_DIR/<output folder>/<date>/` (a local folder or a shared folder on the local network; the system is air-gapped and sends no e-mail) and can be downloaded from Reports > Report history.
+
+## 8. Testing against a local Oracle
+
+`backend/tests/oracle` runs the application on a real Oracle database exactly as it will run in production: it
+creates two throwaway accounts (`CPC_T_OWNER`, `CPC_T_APP`) with random passwords, applies `db/oracle/V*.sql` with
+sqlplus, grants the runtime account only what section 3 lists, exercises every kind of record, the computed views,
+reports and exports, checks that the audit trail is append-only and that business records cannot be deleted, then
+drops both accounts.
+
+```
+# oracle-local.env in the project folder (git-ignored): ORACLE_DSN, ORACLE_SYSTEM_USER, ORACLE_SYSTEM_PASSWORD
+cd backend
+..\.venv\Scripts\python.exe -m pytest -m oracle tests/oracle -o addopts=
+```
+
+sqlplus must be on PATH. Verified on Oracle Database 26ai Free (thin mode), 5 Nov 2026.
