@@ -101,3 +101,10 @@ def test_due_schedules_write_files_to_the_reports_folder_and_can_be_downloaded(a
     assert res.status_code == 200 and len(res.data) > 100
     viewer_runs = admin.get("/api/v1/reports/history/999999/file")
     assert viewer_runs.status_code == 404
+
+
+def test_decision_support_report_names_its_panels(admin):
+    for lang, word in (("EN", "Critical capability gaps"), ("AR", "فجوات القدرات الحرجة")):
+        titles = [s["title"] for s in admin.json(f"/api/v1/reports/decision-support?lang={lang}")["sections"]]
+        assert any(t.startswith(word) for t in titles), titles
+        assert not any(t.startswith("criticalGaps") for t in titles)

@@ -268,6 +268,20 @@ _DATASET_NAMES = {"assets": ("Assets", "الأصول"), "models": ("Capability m
                   "suppliers": ("Suppliers and manufacturers", "الموردون والشركات المصنعة"), "contracts": ("Contracts", "العقود"),
                   "aiModels": ("AI capability by model", "قدرات الذكاء الاصطناعي حسب النموذج")}
 
+DECISION_PANELS = {
+    "criticalGaps": ("Critical capability gaps", "فجوات القدرات الحرجة"),
+    "projectsAtRisk": ("Projects at risk", "المشاريع المعرضة للخطر"),
+    "replacement": ("Capabilities requiring replacement", "قدرات تتطلب الاستبدال"),
+    "maintenance": ("Maintenance bottlenecks", "اختناقات الصيانة"),
+    "deliveries": ("Upcoming deliveries", "التسليمات القادمة"),
+    "tests": ("Upcoming tests", "الاختبارات القادمة"),
+    "lowReadiness": ("Readiness by department", "الجاهزية حسب الإدارة"),
+    "budget": ("Budget overruns", "تجاوزات الميزانية"),
+    "warranty": ("Warranties ending", "ضمانات تنتهي قريباً"),
+    "opportunities": ("Unfunded high-priority opportunities", "فرص عالية الأولوية دون تمويل"),
+    "overdueMitigations": ("Overdue risk mitigations", "إجراءات معالجة مخاطر متأخرة"),
+}
+
 TREND_METRICS = (("assets_total", "Total assets", "إجمالي الأصول"), ("assets_operational", "Ready assets", "الأصول الجاهزة"),
                  ("assets_maintenance", "Assets under maintenance", "الأصول قيد الصيانة"),
                  ("assets_not_ready", "Assets not ready", "الأصول غير الجاهزة"),
@@ -540,7 +554,7 @@ def _special(actor, report: dict, lang: str) -> dict:
                          "rows": _clean(upcoming)})
     elif kind == "decision":
         for p in operations_service.decision_support(actor)["panels"]:
-            sections.append({"kind": "list", "title": f"{p['key']} ({p['count']})",
+            sections.append({"kind": "list", "title": f"{_t(*DECISION_PANELS.get(p['key'], (p['key'], p['key'])), lang)} ({p['count']})",
                              "basis": _t(p["basisEn"], p["basisAr"], lang),
                              "items": [_t(i["textEn"], i["textAr"], lang) + (f" — {_t(i['subEn'], i['subAr'], lang)}" if i["subEn"] else "")
                                        for i in p["items"]]})
