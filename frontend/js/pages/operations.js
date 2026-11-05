@@ -143,7 +143,7 @@ async function maintenance(container) {
         { key: 'exp', label: t('maintenance.fields.expected'), render: (m) => h('span', { class: m.overdue ? 'badge c-red no-dot' : '', text: formatDate(m.expectedEndDate) }) },
         { key: 'act', label: t('maintenance.fields.actual'), render: (m) => formatDate(m.actualEndDate) },
         { key: 'prog', label: t('maintenance.fields.progress'), num: true, render: (m) => formatPercent(m.progressPct) },
-        { key: 'parts', label: t('maintenance.fields.parts'), render: (m) => (m.partsShortage ? h('span', { class: 'badge c-red', text: m.partsText || t('maintenance.fields.shortage') }) : null) },
+        { key: 'parts', label: t('maintenance.fields.parts'), render: (m) => (m.partsShortage ? h('span', { class: 'badge c-red wrap', text: m.partsText || t('maintenance.fields.shortage') }) : null) },
         { key: 'cost', label: t('maintenance.fields.cost'), num: true, render: (m) => formatMoney(m.cost) },
         editable ? { key: 'edit', label: '', render: (m) => editBtn(() => maintenanceForm(m, load)) } : null,
       ].filter(Boolean), d.items));
@@ -190,7 +190,7 @@ async function ai(container) {
     const levelName = (n) => (n ? `L${n} · ${name(d.criteria[n - 1])}` : t('ai.noneLevel'));
     const matrix = h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
       h('thead', {}, h('tr', {}, h('th', { text: t('fields.model') }), h('th', { text: t('ai.level') }),
-        d.technologies.map((tech) => h('th', { title: name(tech), style: 'writing-mode:vertical-rl;transform:rotate(180deg);height:130px;font-size:.7rem', text: name(tech) })))),
+        d.technologies.map((tech) => h('th', { class: 'vertical', title: name(tech), text: name(tech) })))),
       h('tbody', {}, d.models.map((m) => h('tr', {},
         h('td', {}, h('a', { href: `/models/${m.model.id}?tab=ai`, text: `${name(m.model)}` }), h('span', { class: 'muted small', text: ` ${m.category ? m.category.code : ''}` })),
         h('td', {}, h('span', { class: `badge ${m.level >= 4 ? 'c-purple' : m.level >= 2 ? 'c-blue' : 'c-grey'}`, text: `L${m.level}` })),

@@ -64,6 +64,11 @@ def _rules() -> dict[str, dict]:
     return out
 
 
+def _d(value) -> str:
+    """Dates inside alert messages: dd/mm/yyyy, Western digits."""
+    return value.strftime("%d/%m/%Y")
+
+
 def _alert(alert_type, record_id, text_en, text_ar, link, department_id, when=None):
     return {"key": f"{alert_type}:{record_id}", "type": alert_type, "severity": TYPES[alert_type][0],
             "textEn": text_en, "textAr": text_ar, "link": link, "departmentId": department_id,
@@ -105,8 +110,8 @@ def _all_alerts(rules: dict) -> list[dict]:
                               f"{p.code}: المرحلة «{m.name_ar}» متأخرة {(today - end).days} يوماً.",
                               f"/projects/{p.id}?tab=milestones", p.department_id, end))
         elif m.is_major and (end - today).days <= days("MILESTONE_DUE"):
-            out.append(_alert("MILESTONE_DUE", m.id, f"{p.code} major milestone «{m.name_en}» due {end.isoformat()}.",
-                              f"{p.code}: المرحلة الرئيسية «{m.name_ar}» مستحقة في {end.isoformat()}.",
+            out.append(_alert("MILESTONE_DUE", m.id, f"{p.code} major milestone «{m.name_en}» due {_d(end)}.",
+                              f"{p.code}: المرحلة الرئيسية «{m.name_ar}» مستحقة في {_d(end)}.",
                               f"/projects/{p.id}?tab=milestones", p.department_id, end))
     for r in session.scalars(select(Risk).where(Risk.archived_at.is_(None))):
         p = by_id.get(r.project_id)
@@ -117,8 +122,8 @@ def _all_alerts(rules: dict) -> list[dict]:
                               f"{r.code} ({p.code}) خطر حرج، الدرجة {r.probability * r.impact}: {r.title_ar}",
                               f"/projects/{p.id}?tab=risks", p.department_id))
         if r.mitigation_due_date and r.mitigation_due_date < today:
-            out.append(_alert("MITIGATION_OVERDUE", r.id, f"{r.code} ({p.code}) mitigation overdue since {r.mitigation_due_date.isoformat()}.",
-                              f"{r.code} ({p.code}) إجراء المعالجة متأخر منذ {r.mitigation_due_date.isoformat()}.",
+            out.append(_alert("MITIGATION_OVERDUE", r.id, f"{r.code} ({p.code}) mitigation overdue since {_d(r.mitigation_due_date)}.",
+                              f"{r.code} ({p.code}) إجراء المعالجة متأخر منذ {_d(r.mitigation_due_date)}.",
                               f"/projects/{p.id}?tab=risks", p.department_id, r.mitigation_due_date))
     issue_terminal = project_health.terminal_codes("ISSUE")
     for i in session.scalars(select(Issue).where(Issue.archived_at.is_(None))):
@@ -149,8 +154,8 @@ def _all_alerts(rules: dict) -> list[dict]:
                               f"{a.code}: بانتظار قطع الغيار ({mo.parts_text or mo.code}).", "/maintenance", a.department_id))
     for a in assets.values():
         if a.warranty_end_date and 0 <= (a.warranty_end_date - today).days <= days("WARRANTY_EXPIRING"):
-            out.append(_alert("WARRANTY_EXPIRING", a.id, f"{a.code} warranty ends {a.warranty_end_date.isoformat()}.",
-                              f"ينتهي ضمان {a.code} في {a.warranty_end_date.isoformat()}.", f"/assets/{a.id}",
+            out.append(_alert("WARRANTY_EXPIRING", a.id, f"{a.code} warranty ends {_d(a.warranty_end_date)}.",
+                              f"ينتهي ضمان {a.code} في {_d(a.warranty_end_date)}.", f"/assets/{a.id}",
                               a.department_id, a.warranty_end_date))
         if a.status_code == "NOT_READY":
             name = models[a.model_id].name_en if a.model_id in models else ""
@@ -159,8 +164,8 @@ def _all_alerts(rules: dict) -> list[dict]:
                               f"/assets/{a.id}", a.department_id))
     for c in session.scalars(select(Contract).where(Contract.archived_at.is_(None))):
         if c.end_date and 0 <= (c.end_date - today).days <= days("CONTRACT_EXPIRING"):
-            out.append(_alert("CONTRACT_EXPIRING", c.id, f"Contract {c.code} ends {c.end_date.isoformat()}.",
-                              f"ينتهي العقد {c.code} في {c.end_date.isoformat()}.", "/search?q=" + c.code, None, c.end_date))
+            out.append(_alert("CONTRACT_EXPIRING", c.id, f"Contract {c.code} ends {_d(c.end_date)}.",
+                              f"ينتهي العقد {c.code} في {_d(c.end_date)}.", "/search?q=" + c.code, None, c.end_date))
     for r in metrics_service.requirement_metrics(_SystemActor()):
         if r["critical"]:
             out.append(_alert("CRITICAL_GAP", r["id"], f"Critical gap: {r['nameEn']}, forecast shortage {r['forecastGap']}.",
@@ -171,8 +176,8 @@ def _all_alerts(rules: dict) -> list[dict]:
             out.append(_alert("TEST_FAILED", e.id, f"{e.code} {e.title_en} failed.", f"{e.code} {e.title_ar}: راسب.",
                               "/testing", e.department_id, e.test_date))
         if e.status_code == "PLANNED" and 0 <= (e.test_date - today).days <= days("TEST_UPCOMING"):
-            out.append(_alert("TEST_UPCOMING", e.id, f"{e.code} {e.title_en} on {e.test_date.isoformat()}.",
-                              f"{e.code} {e.title_ar} في {e.test_date.isoformat()}.", "/testing", e.department_id, e.test_date))
+            out.append(_alert("TEST_UPCOMING", e.id, f"{e.code} {e.title_en} on {_d(e.test_date)}.",
+                              f"{e.code} {e.title_ar} في {_d(e.test_date)}.", "/testing", e.department_id, e.test_date))
     return out
 
 

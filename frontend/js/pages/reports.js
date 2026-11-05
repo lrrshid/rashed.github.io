@@ -18,8 +18,11 @@ function cell(value, kind) {
   if (kind === 'money') return formatMoney(value);
   if (kind === 'date') return formatDate(value);
   if (kind === 'number' && typeof value === 'number') return formatNumber(value, 1);
+  // Record codes (RSK-007, PRJ-011, UAV-001) never break across lines.
+  if (CODE_RE.test(value)) return h('span', { class: 'mono', text: value });
   return String(value);
 }
+const CODE_RE = /^[A-Z]{2,5}-\d+$/;
 
 // The report as a printable document: header (title, generation details, filters, classification) and its sections.
 export function reportView(result, lang) {

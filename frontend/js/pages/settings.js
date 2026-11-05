@@ -13,6 +13,11 @@ const TABS = ['departments', 'categories', 'sites', 'organizations', 'contracts'
   'rules', 'roles', 'users', 'alertRules', 'audit'];
 const COLORS = ['green', 'amber', 'red', 'blue', 'purple', 'teal', 'grey', 'orange', 'pink', 'dark'];
 // Business-rule keys contain dots (assets.available_statuses), so they are looked up in the rules object directly.
+// Permission codes contain dots too (edit.requirements).
+function permLabel(code) {
+  const labels = t('settings.roles.permissions');
+  return (labels && labels[code]) || code;
+}
 function ruleLabel(key) {
   const labels = t('settings.rules');
   return (labels && labels[key]) || key;
@@ -179,7 +184,7 @@ export async function render(container, ctx) {
   async function roles() {
     const d = await api.get('/admin/roles');
     const head = h('tr', {}, h('th', { text: t('settings.tabs.roles') }), d.items.map((r) => h('th', { style: 'text-align:center' }, name(r), h('div', { class: 'muted small', text: t(`settings.roles.${r.scope}`) }))));
-    const rows = d.permissions.map((p) => h('tr', {}, h('th', { scope: 'row', class: 'small' }, t(`settings.roles.permissions.${p}`), h('div', { class: 'mono muted small', text: p })),
+    const rows = d.permissions.map((p) => h('tr', {}, h('th', { scope: 'row', class: 'small' }, permLabel(p), h('div', { class: 'mono muted small', text: p })),
       d.items.map((r) => {
         const box = h('input', { type: 'checkbox', checked: r.permissions.includes(p) || undefined, disabled: (r.system && p === 'admin') || undefined, 'aria-label': `${name(r)}: ${p}` });
         box.addEventListener('change', async () => {

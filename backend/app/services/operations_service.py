@@ -313,6 +313,15 @@ def _item(text_en, text_ar, link, sub_en="", sub_ar="", tone="RED"):
     return {"textEn": text_en, "textAr": text_ar, "subEn": sub_en, "subAr": sub_ar, "link": link, "tone": tone}
 
 
+_PRIORITY = {"CRITICAL": ("Critical", "حرجة"), "HIGH": ("High", "عالية"), "MEDIUM": ("Medium", "متوسطة"),
+             "LOW": ("Low", "منخفضة")}
+
+
+def _d(value) -> str:
+    """Panel sub-lines are display text: dd/mm/yyyy with Western digits, as everywhere in the UI."""
+    return value.strftime("%d/%m/%Y")
+
+
 def decision_support(actor) -> dict:
     session = context.session()
     today = context.today()
@@ -361,11 +370,11 @@ def decision_support(actor) -> dict:
         end = m.forecast_end_date or m.planned_end_date
         if m.name_en == "Delivery" and 0 <= (end - today).days <= 180:
             deliveries.append(_item(f"{p.code} · {p.name_en}", f"{p.code} · {p.name_ar}", f"/projects/{p.id}?tab=milestones",
-                                    end.isoformat(), end.isoformat(), "BLUE"))
+                                    _d(end), _d(end), "BLUE"))
     for e in session.scalars(select(TestEvent).where(TestEvent.archived_at.is_(None), TestEvent.status_code == "PLANNED")):
         if in_scope(e.department_id) and 0 <= (e.test_date - today).days <= 90:
-            tests.append(_item(e.title_en, e.title_ar, "/testing", f"{e.test_date.isoformat()} · {e.test_type.lower()}",
-                               f"{e.test_date.isoformat()}", "BLUE"))
+            tests.append(_item(e.title_en, e.title_ar, "/testing", f"{_d(e.test_date)} · {e.test_type.lower()}",
+                               _d(e.test_date), "BLUE"))
     open_maint = [m for m in session.scalars(select(MaintenanceOrder).where(MaintenanceOrder.archived_at.is_(None),
                                                                            MaintenanceOrder.status_code.notin_(("COMPLETED", "CANCELLED"))))]
     bottlenecks = []
@@ -405,23 +414,23 @@ def decision_support(actor) -> dict:
                          "مشاريع نشطة تتجاوز صرفها والتزاماتها الميزانية.", over))
     warranty = [a for a in assets if a.warranty_end_date and 0 <= (a.warranty_end_date - today).days <= 90]
     panels.append(_panel("warranty", "Asset warranties that end within 90 days.", "ضمانات أصول تنتهي خلال 90 يوماً.",
-                         [_item(a.code, a.code, f"/assets/{a.id}", a.warranty_end_date.isoformat(),
-                                a.warranty_end_date.isoformat(), "AMBER") for a in warranty]))
+                         [_item(a.code, a.code, f"/assets/{a.id}", _d(a.warranty_end_date),
+                                _d(a.warranty_end_date), "AMBER") for a in warranty]))
     opps = [o for o in session.scalars(select(DevelopmentOpportunity).where(
         DevelopmentOpportunity.archived_at.is_(None), DevelopmentOpportunity.project_id.is_(None),
         DevelopmentOpportunity.priority.in_(("CRITICAL", "HIGH")),
         DevelopmentOpportunity.status_code.in_(("PROPOSED", "POSSIBLE", "APPROVED", "UNDER_STUDY"))))]
     panels.append(_panel("opportunities", "High-priority development opportunities with no linked project.",
                          "فرص تطوير عالية الأولوية دون مشروع مرتبط.",
-                         [_item(f"{o.code} · {o.title_en}", f"{o.code} · {o.title_ar}", "/development", o.priority,
-                                o.priority, "BLUE") for o in opps]))
+                         [_item(f"{o.code} · {o.title_en}", f"{o.code} · {o.title_ar}", "/development",
+                                *_PRIORITY.get(o.priority, (o.priority, o.priority)), "BLUE") for o in opps]))
     risks = []
     for r, p in session.execute(select(Risk, Project).join(Project, Project.id == Risk.project_id)
                                 .where(Risk.archived_at.is_(None), Risk.mitigation_due_date < today)):
         if in_scope(p.department_id) and r.status_code not in ctx.risk_terminal:
             risks.append(_item(f"{r.code} · {r.title_en}", f"{r.code} · {r.title_ar}", f"/projects/{p.id}?tab=risks",
-                               f"{p.code} · due {r.mitigation_due_date.isoformat()}",
-                               f"{p.code} · {r.mitigation_due_date.isoformat()}"))
+                               f"{p.code} · due {_d(r.mitigation_due_date)}",
+                               f"{p.code} · {_d(r.mitigation_due_date)}"))
     panels.append(_panel("overdueMitigations", "Open risks whose mitigation is past its due date.",
                          "مخاطر مفتوحة تجاوزت إجراءات معالجتها موعدها.", risks))
     return {"panels": panels, "asOf": today.isoformat()}

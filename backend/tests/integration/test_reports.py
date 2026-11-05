@@ -108,3 +108,17 @@ def test_decision_support_report_names_its_panels(admin):
         titles = [s["title"] for s in admin.json(f"/api/v1/reports/decision-support?lang={lang}")["sections"]]
         assert any(t.startswith(word) for t in titles), titles
         assert not any(t.startswith("criticalGaps") for t in titles)
+
+
+def test_arabic_output_shows_labels_and_dd_mm_yyyy_not_raw_codes(admin):
+    import re
+    leadership = admin.json("/api/v1/reports/leadership-monthly?lang=AR")
+    risks = next(s for s in leadership["sections"] if s.get("kind") == "table" and any(c["key"] == "level" for c in s["columns"]))
+    assert risks["rows"] and {r["level"] for r in risks["rows"]} <= {"حرجة", "عالية"}
+    iso = re.compile(r"\d{4}-\d{2}-\d{2}")
+    for panel in admin.json("/api/v1/decision-support")["panels"]:
+        for item in panel["items"]:
+            assert not iso.search(item["subEn"] + item["subAr"]), item
+            assert item["subAr"] not in ("CRITICAL", "HIGH"), item
+    for alert in admin.json("/api/v1/alerts")["items"]:
+        assert not iso.search(alert["textEn"] + alert["textAr"]), alert

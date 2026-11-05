@@ -46,6 +46,40 @@ def _status(domain, code, lang):
     return _t(s.name_en, s.name_ar, lang) if s else (code or "")
 
 
+# Fixed codes shown in reports, in the report language (the twins of the labels in frontend/js/labels*.js).
+_LEVELS = {"CRITICAL": ("Critical", "حرجة"), "HIGH": ("High", "عالية"), "MEDIUM": ("Medium", "متوسطة"), "LOW": ("Low", "منخفضة")}
+CODE_LABELS = {
+    "priority": _LEVELS,
+    "level": _LEVELS,
+    "severity": _LEVELS,
+    "complexity": {"LOW": ("Low", "منخفض"), "MEDIUM": ("Medium", "متوسط"), "HIGH": ("High", "عالٍ")},
+    "riskCategory": {"TECHNICAL": ("Technical", "فنية"), "SCHEDULE": ("Schedule", "زمنية"), "FINANCIAL": ("Financial", "مالية"),
+                     "SUPPLY_CHAIN": ("Supply chain", "سلسلة الإمداد"), "COMMERCIAL": ("Commercial / contractual", "تجارية / تعاقدية"),
+                     "OPERATIONAL": ("Operational", "تشغيلية"), "ENVIRONMENTAL": ("Environmental", "بيئية"),
+                     "REGULATORY": ("Regulatory", "تنظيمية")},
+    "testType": {"INTERNAL": ("Internal", "داخلية"), "EXTERNAL": ("External", "خارجية")},
+    "maintType": {"PREVENTIVE": ("Preventive", "وقائية"), "CORRECTIVE": ("Corrective", "تصحيحية"),
+                  "INSPECTION": ("Inspection", "فحص"), "UPGRADE": ("Upgrade", "ترقية")},
+    "devType": {"AI": ("AI upgrade", "ترقية الذكاء الاصطناعي"), "SENSORS": ("Sensors", "المستشعرات"),
+                "ENDURANCE": ("Endurance", "التحمل"), "COMMUNICATIONS": ("Communications", "الاتصالات"),
+                "AUTONOMY": ("Autonomy", "الاستقلالية"), "PAYLOAD": ("Payload", "الحمولة"), "SECURITY": ("Security", "الأمن"),
+                "INTEGRATION": ("Integration", "التكامل"), "OTHER": ("Other", "أخرى")},
+    "docType": {"REPORT": ("Report", "تقرير"), "SPECIFICATION": ("Specification", "مواصفات"), "CONTRACT": ("Contract", "عقد"),
+                "TEST_REPORT": ("Test report", "تقرير اختبار"), "MANUAL": ("Manual", "دليل"), "CERTIFICATE": ("Certificate", "شهادة"),
+                "CORRESPONDENCE": ("Correspondence", "مراسلات"), "PRESENTATION": ("Presentation", "عرض تقديمي"),
+                "DATASHEET": ("Datasheet", "نشرة بيانات"), "OTHER": ("Other", "أخرى")},
+    "entity": {"CAPABILITY_MODEL": ("Capability model", "نموذج قدرة"), "ASSET": ("Asset", "أصل"), "PROJECT": ("Project", "مشروع"),
+               "TEST_EVENT": ("Test", "اختبار"), "MAINTENANCE_ORDER": ("Maintenance", "صيانة"),
+               "ORGANIZATION": ("Supplier / manufacturer", "مورد / شركة مصنعة"), "CONTRACT": ("Contract", "عقد"),
+               "CAPABILITY_REQUIREMENT": ("Requirement", "متطلب")},
+}
+
+
+def _code(kind, code, lang):
+    label = CODE_LABELS[kind].get(code)
+    return _t(*label, lang) if label else (code or "")
+
+
 # ---------------------------------------------------------------- datasets -----------------------------------------
 # field: (key, English label, Arabic label, kind, groupable). kind: text | number | percent | date | money
 
@@ -75,7 +109,7 @@ def _models(actor, lang):
 
 def _requirements(actor, lang):
     return [{"code": r["code"], "requirement": _n(r, lang), "department": _n(r["department"], lang),
-             "category": r["category"]["code"], "priority": r["priority"], "required": r["required"],
+             "category": r["category"]["code"], "priority": _code("priority", r["priority"], lang), "required": r["required"],
              "available": r["available"], "operational": r["operational"], "pipeline": r["pipelineTotal"],
              "gap": r["gap"], "forecastGap": r["forecastGap"], "current": r["currentPct"], "forecast": r["forecastPct"],
              "critical": _t("Yes", "نعم", lang) if r["critical"] else _t("No", "لا", lang), "_critical": r["critical"]}
@@ -105,8 +139,8 @@ def _milestones(actor, lang):
 
 def _risks(actor, lang):
     return [{"code": r["code"], "project": r["project"]["code"], "department": _n(r["project"]["department"], lang),
-             "risk": _t(r["titleEn"], r["titleAr"], lang), "category": r["category"], "probability": r["probability"],
-             "impact": r["impact"], "score": r["score"], "level": r["level"], "owner": r["ownerName"] or "",
+             "risk": _t(r["titleEn"], r["titleAr"], lang), "category": _code("riskCategory", r["category"], lang), "probability": r["probability"],
+             "impact": r["impact"], "score": r["score"], "level": _code("level", r["level"], lang), "_level": r["level"], "owner": r["ownerName"] or "",
              "due": r["mitigationDueDate"], "status": _status("RISK", r["status"], lang), "_status": r["status"],
              "_overdue": r["mitigationOverdue"]}
             for r in project_service.list_risks(actor, {})["items"]]
@@ -114,7 +148,7 @@ def _risks(actor, lang):
 
 def _issues(actor, lang):
     return [{"code": i["code"], "project": i["project"]["code"], "department": _n(i["project"]["department"], lang),
-             "issue": _t(i["titleEn"], i["titleAr"], lang), "severity": i["severity"], "owner": i["ownerName"] or "",
+             "issue": _t(i["titleEn"], i["titleAr"], lang), "severity": _code("severity", i["severity"], lang), "owner": i["ownerName"] or "",
              "raised": i["raisedDate"], "target": i["targetDate"], "status": _status("ISSUE", i["status"], lang),
              "_status": i["status"], "escalated": _t("Yes", "نعم", lang) if i["escalated"] else _t("No", "لا", lang),
              "_escalated": i["escalated"], "_overdue": i["overdue"]}
@@ -123,7 +157,7 @@ def _issues(actor, lang):
 
 def _tests(actor, lang):
     return [{"code": e["code"], "test": _t(e["titleEn"], e["titleAr"], lang), "model": _n(e["model"], lang),
-             "department": _n(e["department"], lang), "type": e["testType"], "date": e["testDate"],
+             "department": _n(e["department"], lang), "type": _code("testType", e["testType"], lang), "date": e["testDate"],
              "status": _status("TEST", e["status"], lang), "_status": e["status"], "score": e["score"],
              "project": (e["project"] or {}).get("code", "")}
             for e in testing_service.list_tests(actor, {})["items"]]
@@ -131,23 +165,23 @@ def _tests(actor, lang):
 
 def _maintenance(actor, lang):
     return [{"code": m["code"], "asset": m["asset"]["code"], "model": _n(m["model"], lang), "department": _n(m["department"], lang),
-             "type": m["type"], "work": _t(m["titleEn"], m["titleAr"], lang), "status": _status("MAINTENANCE", m["status"], lang),
+             "type": _code("maintType", m["type"], lang), "work": _t(m["titleEn"], m["titleAr"], lang), "status": _status("MAINTENANCE", m["status"], lang),
              "_status": m["status"], "start": m["startDate"], "expected": m["expectedEndDate"], "progress": m["progressPct"],
              "cost": m["cost"], "downtime": m["downtimeDays"], "_overdue": m["overdue"], "_parts": m["partsShortage"]}
             for m in operations_service.maintenance(actor, {})["items"]]
 
 
 def _development(actor, lang):
-    return [{"code": o["code"], "model": _n(o["model"], lang), "type": o["type"], "opportunity": _t(o["titleEn"], o["titleAr"], lang),
-             "status": _status("DEVELOPMENT", o["status"], lang), "_status": o["status"], "complexity": o["complexity"],
-             "cost": o["estimatedCost"], "months": o["durationMonths"], "priority": o["priority"],
+    return [{"code": o["code"], "model": _n(o["model"], lang), "type": _code("devType", o["type"], lang), "opportunity": _t(o["titleEn"], o["titleAr"], lang),
+             "status": _status("DEVELOPMENT", o["status"], lang), "_status": o["status"], "complexity": _code("complexity", o["complexity"], lang),
+             "cost": o["estimatedCost"], "months": o["durationMonths"], "priority": _code("priority", o["priority"], lang),
              "project": (o["project"] or {}).get("code", "")}
             for o in operations_service.development(actor, {})["items"]]
 
 
 def _documents(actor, lang):
-    return [{"code": d["code"], "document": _t(d["titleEn"], d["titleAr"], lang), "type": d["docType"],
-             "linkedType": d["linked"]["type"], "linked": d["linked"]["code"], "version": d["currentVersion"],
+    return [{"code": d["code"], "document": _t(d["titleEn"], d["titleAr"], lang), "type": _code("docType", d["docType"], lang),
+             "linkedType": _code("entity", d["linked"]["type"], lang), "linked": d["linked"]["code"], "version": d["currentVersion"],
              "date": d["latest"]["uploadedAt"][:10] if d["latest"] else None}
             for d in document_service.list_documents(actor, {})["items"]]
 
@@ -321,7 +355,7 @@ def _named_filters():
         ("milestones", "next-90", "Milestones due within 90 days", "مراحل تستحق خلال 90 يوماً",
          lambda r: r["_status"] != "COMPLETED" and r["plannedEnd"] and today() <= r["plannedEnd"] <= in_days(90)),
         ("milestones", "major", "Major milestones", "المراحل الرئيسية", lambda r: r["_major"]),
-        ("risks", "critical", "Critical risks", "المخاطر الحرجة", lambda r: r["level"] == "CRITICAL" and r["_status"] != "CLOSED"),
+        ("risks", "critical", "Critical risks", "المخاطر الحرجة", lambda r: r["_level"] == "CRITICAL" and r["_status"] != "CLOSED"),
         ("risks", "overdue", "Overdue mitigations", "إجراءات المعالجة المتأخرة", lambda r: r["_overdue"]),
         ("risks", "open", "Open risks", "المخاطر المفتوحة", lambda r: r["_status"] != "CLOSED"),
         ("issues", "escalated", "Issues requiring escalation", "مشكلات تتطلب التصعيد", lambda r: r["_escalated"]),
@@ -543,7 +577,7 @@ def _special(actor, report: dict, lang: str) -> dict:
         sections.append({"kind": "table", "title": _t("Delayed projects", "المشاريع المتأخرة", lang),
                          "columns": _columns("projects", ["code", "project", "department", "status", "forecast", "delay", "health"], lang),
                          "rows": _clean(projects)})
-        new_risks = [r for r in _risks(actor, lang) if r["level"] in ("CRITICAL", "HIGH") and r["_status"] != "CLOSED"]
+        new_risks = [r for r in _risks(actor, lang) if r["_level"] in ("CRITICAL", "HIGH") and r["_status"] != "CLOSED"]
         sections.append({"kind": "table", "title": _t("Critical and high risks", "المخاطر الحرجة والعالية", lang),
                          "columns": _columns("risks", ["code", "project", "risk", "score", "level", "owner", "due"], lang),
                          "rows": _clean(new_risks)})

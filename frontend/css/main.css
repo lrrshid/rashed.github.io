@@ -421,3 +421,12 @@ table.heat td button:focus-visible { outline: 3px solid var(--focus); }
 .report-section h3 { margin-bottom: 8px; }
 @media (max-width: 860px) { .report-layout { grid-template-columns: minmax(0, 1fr); } .report-list { position: static; max-height: 320px; } }
 @media print { .report-layout { display: block; } .report-doc { break-inside: auto; } }
+
+/* Tables: cells wrap between words only (overflow-wrap: anywhere on the page would let a narrow column shrink to one
+   character per line); codes and numbers never wrap. Wide tables scroll inside their frame instead. */
+table.data { overflow-wrap: normal; }
+table.data td { overflow-wrap: break-word; min-width: 4ch; }
+table.data .mono, table.data td.num, .badge { white-space: nowrap; }
+th.vertical { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font-size: .7rem; padding: 6px 2px; }
+.tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; }
+.badge.wrap { white-space: normal; }
