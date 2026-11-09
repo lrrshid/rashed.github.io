@@ -171,12 +171,12 @@ def presentation(slides: list[Slide], title: str = "", rtl: bool = False, create
                    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties '
                    'xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" '
                    'xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
-                   f'<dc:title>{_t(title)}</dc:title><dc:creator>Capability Portfolio Command</dc:creator>'
+                   f'<dc:title>{_t(title)}</dc:title><dc:creator>National Guard Capability System</dc:creator>'
                    f'<dcterms:created xsi:type="dcterms:W3CDTF">{created}</dcterms:created></cp:coreProperties>')
         z.writestr("docProps/app.xml",
                    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties '
                    'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
-                   f'<Application>Capability Portfolio Command</Application><Slides>{len(slides)}</Slides></Properties>')
+                   f'<Application>National Guard Capability System</Application><Slides>{len(slides)}</Slides></Properties>')
         slide_ids = "".join(f'<p:sldId id="{256 + i}" r:id="rId{i + 3}"/>' for i in range(len(slides)))
         z.writestr("ppt/presentation.xml",
                    f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation {NS}>'

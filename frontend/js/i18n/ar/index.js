@@ -1,6 +1,6 @@
 // Arabic twin of js/labels.js (same keys). Terms follow docs/arabic-rtl/GLOSSARY.md: formal terms, Western digits.
 export default {
-  app: { name: 'نظام معلومات إدارة القدرات', short: 'نظام معلومات إدارة القدرات', subtitle: 'إدارة القدرات والمحفظة',
+  app: { name: 'نظام قدرات الحرس الوطني', short: 'نظام قدرات الحرس الوطني', subtitle: 'إدارة القدرات',
     classification: 'التصنيف: يحدد لاحقاً' },
   common: {
     none: '—', all: 'الكل', save: 'حفظ', cancel: 'إلغاء', close: 'إغلاق', edit: 'تعديل', add: 'إضافة', archive: 'أرشفة',
@@ -12,7 +12,7 @@ export default {
     viewName: 'اسم طريقة العرض', deleteView: 'حذف طريقة العرض', noResults: 'لا توجد سجلات مطابقة لعوامل التصفية.',
     comingSoon: 'هذه الوحدة ضمن مرحلة بناء لاحقة.', days: '{n} يوماً', months: '{n} شهراً', years: '{n} سنة',
     yesNo: { true: 'نعم', false: 'لا' }, sinceMonth: 'ش', sinceQuarter: 'ر', sinceYear: 'س', aed: 'درهم',
-    million: '{n} مليون درهم', thousand: '{n} ألف درهم', notSet: 'غير محدد', allDepartments: 'جميع الإدارات',
+    million: '{n} مليون درهم', thousand: '{n} ألف درهم', notSet: 'غير محدد', allDepartments: 'مجاميع الحرس الوطني',
     today: 'اليوم', unknown: 'غير معروف',
   },
   nav: {
@@ -33,6 +33,7 @@ export default {
   auth: {
     title: 'تسجيل الدخول', username: 'اسم المستخدم', password: 'كلمة المرور', submit: 'تسجيل الدخول',
     failed: 'اسم المستخدم أو كلمة المرور غير صحيحة.', directoryHint: 'استخدم اسم مستخدم Windows (مثل U12345) وكلمة المرور.',
+    tryDemo: 'جرّب العرض التجريبي (الدخول باسم mock.admin)',
     mockHint: 'العرض التجريبي: سجّل الدخول باسم mock.admin أو mock.exec أو mock.head أو mock.capability أو mock.pm أو mock.maint أو mock.test أو mock.analyst أو mock.viewer. كلمة المرور: Mock-Pass-123',
   },
   errors: { generic: 'حدث خطأ. حاول مرة أخرى.', network: 'تعذر الوصول إلى الخادم. تحقق من الاتصال.',
@@ -40,7 +41,7 @@ export default {
   priority: { CRITICAL: 'حرجة', HIGH: 'عالية', MEDIUM: 'متوسطة', LOW: 'منخفضة' },
   rag: { GREEN: 'أخضر', AMBER: 'كهرماني', RED: 'أحمر', GREY: 'غير مقيّم' },
   fields: {
-    code: 'المعرّف', assetId: 'رقم الأصل', serial: 'الرقم التسلسلي', model: 'النموذج', category: 'الفئة', department: 'الإدارة',
+    code: 'المعرّف', assetId: 'رقم الأصل', serial: 'الرقم التسلسلي', model: 'النموذج', category: 'الفئة', department: 'المجموعة',
     site: 'الموقع', status: 'الحالة', readiness: 'الجاهزية', opReadiness: 'الجاهزية العملياتية', techReadiness: 'الجاهزية الفنية',
     missionReadiness: 'جاهزية المهمة', maintReadiness: 'جاهزية الصيانة', overallReadiness: 'الجاهزية الإجمالية',
     acquisitionDate: 'تاريخ الاقتناء', deliveryDate: 'موعد التسليم المتوقع', acquisitionMethod: 'طريقة الاقتناء',
@@ -74,20 +75,20 @@ export default {
   completion: {
     title: 'استكمال القدرات',
     subtitle: 'يحتسب الاستكمال المتوقع المشاريع ذات الحالات المعتمدة فقط (قابل للتهيئة من الإعدادات > قواعد العمل).',
-    byDepartment: 'حسب الإدارة', byCategory: 'حسب فئة القدرة', total: 'الإجمالي', current: 'الاستكمال الحالي',
+    byDepartment: 'حسب المجموعة', byCategory: 'حسب نوع القدرة', total: 'الإجمالي', current: 'الاستكمال الحالي',
     forecast: 'الاستكمال المتوقع', requirements: 'متطلبات القدرات', criticalGaps: 'الفجوات الحرجة',
     currentForecast: 'الاستكمال الحالي مقابل المتوقع',
   },
   gaps: { title: 'تحليل فجوات القدرات', subtitle: 'المطلوب − المتوفر = الفجوة. يضيف التوقع المشاريع ذات الحالات المعتمدة.',
-    heatmap: 'الخريطة الحرارية', current: 'الفجوة الحالية', forecast: 'الفجوة المتوقعة', byDepartment: 'مقارنة الإدارات',
+    heatmap: 'الخريطة الحرارية', current: 'الفجوة الحالية', forecast: 'الفجوة المتوقعة', byDepartment: 'مقارنة المجاميع',
     byCategory: 'مقارنة الفئات', register: 'سجل الفجوات', critical: 'فجوة حرجة', legendCritical: '! = حرجة' },
   dashboard: {
-    title: 'الموقف التنفيذي للقدرات', subtitle: 'بتاريخ {date} · {scope} · اختر أي رقم لعرض السجلات المرتبطة به.',
+    title: 'موقف القدرات', subtitle: 'بتاريخ {date} · {scope} · اختر أي رقم لعرض السجلات المرتبطة به.',
     inventory: 'المخزون', pipeline: 'قيد الإعداد', portfolio: 'المحفظة', attention: 'بنود تتطلب اهتمام القيادة',
     matrix: 'مصفوفة نظرة عامة على القدرات', statusDistribution: 'توزيع حالات القدرات',
-    completionByDept: 'استكمال القدرات حسب الإدارة', currentVsForecast: 'الاستكمال الحالي مقابل المتوقع',
+    completionByDept: 'استكمال القدرات حسب المجموعة', currentVsForecast: 'الاستكمال الحالي مقابل المتوقع',
     gapHeatmap: 'الخريطة الحرارية لفجوات القدرات', sites: 'مواقع انتشار القدرات', portfolioHealth: 'نظرة عامة على محفظة المشاريع',
-    timeline: 'الجدول الزمني لإنجاز المشاريع', summaryButton: 'ملخص القدرات التنفيذي',
+    timeline: 'الجدول الزمني لإنجاز المشاريع', summaryButton: 'ملخص القدرات',
     kpi: { capabilities: 'إجمالي القدرات', assets: 'إجمالي الأصول', ready: 'الأصول الجاهزة', maintenance: 'قيد الصيانة',
       notReady: 'غير جاهزة', awaiting: 'بانتظار الاستبدال', writtenOff: 'الأصول المشطوبة', acquisition: 'قيد الاقتناء',
       development: 'قيد التطوير', test: 'قيد الاختبار', criticalGaps: 'فجوات القدرات الحرجة', activeProjects: 'المشاريع الحالية',

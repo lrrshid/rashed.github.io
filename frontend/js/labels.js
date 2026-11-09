@@ -8,8 +8,8 @@ import ADMIN from './labels-admin.js';
 import REPORTS from './labels-reports.js';
 
 const EN = {
-  app: { name: 'Capability Portfolio Command', short: 'Capability management information system',
-    subtitle: 'Capabilities and portfolio management', classification: 'Classification: to be set later' },
+  app: { name: 'National Guard Capability System', short: 'National Guard Capability System',
+    subtitle: 'Capability management', classification: 'Classification: to be set later' },
   common: {
     none: '—', all: 'All', save: 'Save', cancel: 'Cancel', close: 'Close', edit: 'Edit', add: 'Add', archive: 'Archive',
     restore: 'Restore', loading: 'Loading…', retry: 'Try again', search: 'Search', filters: 'Filters', clear: 'Clear filters',
@@ -40,6 +40,7 @@ const EN = {
   auth: {
     title: 'Sign in', username: 'Username', password: 'Password', submit: 'Sign in', failed: 'Invalid username or password.',
     directoryHint: 'Use your Windows username (for example U12345) and password.',
+    tryDemo: 'Try the demo (sign in as mock.admin)',
     mockHint: 'Demo: sign in as mock.admin, mock.exec, mock.head, mock.capability, mock.pm, mock.maint, mock.test, mock.analyst or mock.viewer. Password: Mock-Pass-123',
   },
   errors: { generic: 'Something went wrong. Try again.', network: 'The server cannot be reached. Check the connection.',

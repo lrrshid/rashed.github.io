@@ -57,7 +57,7 @@ export function renderSidebar(alertCount = 0) {
   }
   replace(sidebar,
     h('div', { class: 'brand' },
-      h('img', { class: 'brand-mark', src: '/assets/icons/favicon.svg', alt: '' }),
+      h('img', { class: 'brand-mark', src: '/assets/icons/ng-logo.png', alt: '' }),
       h('div', {}, h('div', { class: 'brand-name', text: t('app.name') }), h('div', { class: 'brand-sub', text: t('app.subtitle') }))),
     nav,
     h('div', { class: 'sidebar-foot', text: t('nav.footer') }));

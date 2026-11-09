@@ -79,7 +79,7 @@ def project_test_health(project_ids: list[int] | None) -> dict:
     for pid, e in latest.items():
         rag = {"PASSED": "GREEN", "CONDITIONAL": "AMBER", "FAILED": "RED"}[e.status_code]
         word_en = {"PASSED": "passed", "CONDITIONAL": "passed with conditions", "FAILED": "failed"}[e.status_code]
-        word_ar = {"PASSED": "ناجح", "CONDITIONAL": "نجاح مشروط", "FAILED": "راسب"}[e.status_code]
+        word_ar = {"PASSED": "ناجح", "CONDITIONAL": "نجاح مشروط", "FAILED": "غير ناجح"}[e.status_code]
         out[pid] = (rag, f"{e.code} {e.title_en}: {word_en}" + (f" ({e.result_en})" if e.result_en else ""),
                     f"{e.code} {e.title_ar}: {word_ar}" + (f" ({e.result_ar})" if e.result_ar else ""))
     return out

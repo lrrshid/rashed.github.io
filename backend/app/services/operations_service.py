@@ -400,7 +400,7 @@ def decision_support(actor) -> dict:
             by_dept[a.department_id].append(a.readiness_operational)
     readiness = sorted(((d, round(sum(v) / len(v))) for d, v in by_dept.items()), key=lambda x: x[1])
     panels.append(_panel("lowReadiness", "Departments by average operational readiness of available assets, lowest first.",
-                         "الإدارات حسب متوسط الجاهزية العملياتية للأصول المتوفرة، من الأقل.",
+                         "المجاميع حسب متوسط الجاهزية العملياتية للأصول المتوفرة، من الأقل.",
                          [_item(lk.by_id(Department)[d].name_en, lk.by_id(Department)[d].name_ar, "/maintenance",
                                 f"{v}%", f"{v}%", "AMBER" if v < 80 else "GREEN") for d, v in readiness]))
     over = []

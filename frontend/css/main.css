@@ -85,7 +85,7 @@ bdi { unicode-bidi: isolate; }
 .page { max-width: 1600px; margin: 0 auto; }
 
 .brand { display: flex; gap: 10px; align-items: center; padding: 16px 16px 14px; border-block-end: 1px solid var(--navy-600); }
-.brand-mark { width: 34px; height: 34px; flex: none; }
+.brand-mark { width: 34px; height: 34px; flex: none; object-fit: contain; }
 .brand-name { font-weight: 700; font-size: .92rem; line-height: 1.25; }
 .brand-sub { color: var(--on-navy-muted); font-size: .72rem; }
 .nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 1px; }
@@ -330,6 +330,7 @@ table.heat td button:focus-visible { outline: 3px solid var(--focus); }
 .login-card .brand-sub { color: var(--text-muted); }
 .login-card form { display: flex; flex-direction: column; gap: 12px; }
 .login-card .input { width: 100%; }
+.login-demo { width: 100%; margin-top: 10px; }
 .login-lang { margin-top: 14px; text-align: center; }
 .mock-hint { margin-top: 14px; font-size: .76rem; color: var(--text-muted); background: var(--surface-muted); border-radius: var(--radius-sm); padding: 8px 10px; }
 

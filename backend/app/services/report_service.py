@@ -214,7 +214,7 @@ def F(key, en, ar, kind="text", group=False):
 DATASETS = {
     "assets": (_assets, _t, [F("code", "Asset ID", "رقم الأصل"), F("serial", "Serial number", "الرقم التسلسلي"),
                F("model", "Model", "النموذج", group=True), F("category", "Category", "الفئة", group=True),
-               F("department", "Department", "الإدارة", group=True), F("site", "Location", "الموقع", group=True),
+               F("department", "Department", "المجموعة", group=True), F("site", "Location", "الموقع", group=True),
                F("status", "Status", "الحالة", group=True), F("manufacturer", "Manufacturer", "الشركة المصنعة", group=True),
                F("operational", "Operational readiness", "الجاهزية العملياتية", "percent"),
                F("overall", "Overall readiness", "الجاهزية الإجمالية", "percent"),
@@ -226,14 +226,14 @@ DATASETS = {
                F("assets", "Assets", "الأصول", "number"), F("ready", "Ready", "الجاهزة", "number"),
                F("unitCost", "Unit cost", "تكلفة الوحدة", "money")]),
     "requirements": (_requirements, _t, [F("code", "ID", "المعرّف"), F("requirement", "Requirement", "المتطلب"),
-               F("department", "Department", "الإدارة", group=True), F("category", "Category", "الفئة", group=True),
+               F("department", "Department", "المجموعة", group=True), F("category", "Category", "الفئة", group=True),
                F("priority", "Priority", "الأولوية", group=True), F("required", "Required", "المطلوب", "number"),
                F("available", "Available", "المتوفر", "number"), F("operational", "Operational", "الجاهز", "number"),
                F("pipeline", "In preparation", "قيد الإعداد", "number"), F("gap", "Current gap", "الفجوة الحالية", "number"),
                F("forecastGap", "Forecast gap", "الفجوة المتوقعة", "number"), F("current", "Current completion", "الاستكمال الحالي", "percent"),
                F("forecast", "Forecast completion", "الاستكمال المتوقع", "percent"), F("critical", "Critical gap", "فجوة حرجة", group=True)]),
     "projects": (_projects, _t, [F("code", "Project ID", "رقم المشروع"), F("project", "Project", "المشروع"),
-               F("type", "Type", "النوع", group=True), F("department", "Department", "الإدارة", group=True),
+               F("type", "Type", "النوع", group=True), F("department", "Department", "المجموعة", group=True),
                F("category", "Category", "الفئة", group=True), F("status", "Status", "الحالة", group=True),
                F("stage", "Stage", "المرحلة", group=True), F("manager", "Manager", "مدير المشروع", group=True),
                F("progress", "Progress", "الإنجاز", "percent"), F("budget", "Budget", "الميزانية", "money"),
@@ -241,27 +241,27 @@ DATASETS = {
                F("forecast", "Forecast date", "الموعد المتوقع", "date"), F("delay", "Days late", "أيام التأخير", "number"),
                F("health", "Health", "السلامة", group=True)]),
     "milestones": (_milestones, _t, [F("project", "Project", "المشروع", group=True), F("milestone", "Milestone", "المرحلة"),
-               F("department", "Department", "الإدارة", group=True), F("owner", "Owner", "المسؤول", group=True),
+               F("department", "Department", "المجموعة", group=True), F("owner", "Owner", "مدير المشروع", group=True),
                F("plannedEnd", "Planned end", "الانتهاء المخطط", "date"), F("forecast", "Forecast", "المتوقع", "date"),
                F("actual", "Actual", "الفعلي", "date"), F("status", "Status", "الحالة", group=True),
                F("slip", "Slip (days)", "التأخير (أيام)", "number"), F("progress", "Progress", "الإنجاز", "percent")]),
     "risks": (_risks, _t, [F("code", "Risk ID", "رقم الخطر"), F("project", "Project", "المشروع", group=True),
-               F("department", "Department", "الإدارة", group=True), F("risk", "Risk", "الخطر"),
+               F("department", "Department", "المجموعة", group=True), F("risk", "Risk", "الخطر"),
                F("category", "Category", "الفئة", group=True), F("probability", "Probability", "الاحتمالية", "number"),
                F("impact", "Impact", "الأثر", "number"), F("score", "Score", "الدرجة", "number"), F("level", "Level", "المستوى", group=True),
                F("owner", "Owner", "المسؤول", group=True), F("due", "Mitigation due", "موعد المعالجة", "date"),
                F("status", "Status", "الحالة", group=True)]),
     "issues": (_issues, _t, [F("code", "Issue ID", "رقم المشكلة"), F("project", "Project", "المشروع", group=True),
-               F("department", "Department", "الإدارة", group=True), F("issue", "Issue", "المشكلة"),
+               F("department", "Department", "المجموعة", group=True), F("issue", "Issue", "المشكلة"),
                F("severity", "Severity", "الخطورة", group=True), F("owner", "Owner", "المسؤول", group=True),
                F("raised", "Raised", "تاريخ الرصد", "date"), F("target", "Target", "الموعد المستهدف", "date"),
                F("status", "Status", "الحالة", group=True), F("escalated", "Escalated", "مصعّدة", group=True)]),
     "tests": (_tests, _t, [F("code", "Test ID", "رقم الاختبار"), F("test", "Test", "الاختبار"), F("model", "Model", "النموذج", group=True),
-               F("department", "Department", "الإدارة", group=True), F("type", "Type", "النوع", group=True),
+               F("department", "Department", "المجموعة", group=True), F("type", "Type", "النوع", group=True),
                F("date", "Date", "التاريخ", "date"), F("status", "Result", "النتيجة", group=True), F("score", "Score", "الدرجة", "number"),
                F("project", "Project", "المشروع", group=True)]),
     "maintenance": (_maintenance, _t, [F("code", "Order", "الأمر"), F("asset", "Asset", "الأصل"), F("model", "Model", "النموذج", group=True),
-               F("department", "Department", "الإدارة", group=True), F("type", "Type", "النوع", group=True), F("work", "Work", "العمل"),
+               F("department", "Department", "المجموعة", group=True), F("type", "Type", "النوع", group=True), F("work", "Work", "العمل"),
                F("status", "Status", "الحالة", group=True), F("start", "Start", "البدء", "date"), F("expected", "Expected end", "الإنجاز المتوقع", "date"),
                F("progress", "Progress", "الإنجاز", "percent"), F("cost", "Cost", "التكلفة", "money"), F("downtime", "Downtime (days)", "التوقف (أيام)", "number")]),
     "development": (_development, _t, [F("code", "ID", "المعرّف"), F("model", "Model", "النموذج", group=True), F("type", "Type", "النوع", group=True),
@@ -283,7 +283,7 @@ DATASETS = {
 # report: key -> {category, titleEn, titleAr, dataset, group, where (row predicate), columns, perm}
 
 CATEGORIES = {
-    "executive": ("Executive reports", "التقارير التنفيذية"), "capabilities": ("Capability reports", "تقارير القدرات"),
+    "executive": ("Executive reports", "التقارير الرئيسية"), "capabilities": ("Capability reports", "تقارير القدرات"),
     "assets": ("Asset reports", "تقارير الأصول"), "projects": ("Project reports", "تقارير المشاريع"),
     "risks": ("Risk and issue reports", "تقارير المخاطر والمشكلات"), "testing": ("Testing reports", "تقارير التجارب"),
     "maintenance": ("Maintenance reports", "تقارير الصيانة"), "ai": ("AI and development reports", "تقارير الذكاء الاصطناعي والتطوير"),
@@ -302,14 +302,20 @@ _DATASET_NAMES = {"assets": ("Assets", "الأصول"), "models": ("Capability m
                   "suppliers": ("Suppliers and manufacturers", "الموردون والشركات المصنعة"), "contracts": ("Contracts", "العقود"),
                   "aiModels": ("AI capability by model", "قدرات الذكاء الاصطناعي حسب النموذج")}
 
+# Arabic titles worded differently from the generated "<dataset> حسب <field>".
+_AR_TITLE_OVERRIDES = {"requirements-by-department": "متطلبات حسب المجموعة",
+                       "projects-by-department": "مشاريع المجموعة",
+                       "milestones-by-department": "المراحل حسب المجموعة",
+                       "risks-by-department": "مخاطر حسب المجموعة"}
+
 DECISION_PANELS = {
     "criticalGaps": ("Critical capability gaps", "فجوات القدرات الحرجة"),
     "projectsAtRisk": ("Projects at risk", "المشاريع المعرضة للخطر"),
     "replacement": ("Capabilities requiring replacement", "قدرات تتطلب الاستبدال"),
-    "maintenance": ("Maintenance bottlenecks", "اختناقات الصيانة"),
+    "maintenance": ("Maintenance bottlenecks", "معاضل الصيانة"),
     "deliveries": ("Upcoming deliveries", "التسليمات القادمة"),
     "tests": ("Upcoming tests", "الاختبارات القادمة"),
-    "lowReadiness": ("Readiness by department", "الجاهزية حسب الإدارة"),
+    "lowReadiness": ("Readiness by department", "جاهزية المجاميع"),
     "budget": ("Budget overruns", "تجاوزات الميزانية"),
     "warranty": ("Warranties ending", "ضمانات تنتهي قريباً"),
     "opportunities": ("Unfunded high-priority opportunities", "فرص عالية الأولوية دون تمويل"),
@@ -360,7 +366,7 @@ def _named_filters():
         ("risks", "open", "Open risks", "المخاطر المفتوحة", lambda r: r["_status"] != "CLOSED"),
         ("issues", "escalated", "Issues requiring escalation", "مشكلات تتطلب التصعيد", lambda r: r["_escalated"]),
         ("issues", "overdue", "Issues past their target date", "مشكلات تجاوزت موعدها", lambda r: r["_overdue"]),
-        ("tests", "failed", "Failed and conditional tests", "الاختبارات الراسبة والمشروطة", lambda r: r["_status"] in ("FAILED", "CONDITIONAL")),
+        ("tests", "failed", "Failed and conditional tests", "الاختبارات غير الناجحة والمشروطة", lambda r: r["_status"] in ("FAILED", "CONDITIONAL")),
         ("tests", "upcoming", "Upcoming tests", "الاختبارات القادمة", lambda r: r["_status"] == "PLANNED"),
         ("maintenance", "overdue", "Overdue maintenance", "الصيانة المتأخرة", lambda r: r["_overdue"]),
         ("maintenance", "parts", "Spare-part shortages", "نقص قطع الغيار", lambda r: r["_parts"]),
@@ -377,7 +383,7 @@ def catalogue() -> dict[str, dict]:
     def add(key, category, en, ar, perm=PERM_REPORTS_VIEW, **spec):
         reports[key] = {"key": key, "category": category, "titleEn": en, "titleAr": ar, "perm": perm, **spec}
 
-    add("executive-summary", "executive", "Executive capability summary", "ملخص القدرات التنفيذي", PERM_REPORTS_EXEC, special="executive")
+    add("executive-summary", "executive", "Executive capability summary", "ملخص القدرات", PERM_REPORTS_EXEC, special="executive")
     add("leadership-monthly", "executive", "Monthly leadership report", "التقرير الشهري للقيادة", PERM_REPORTS_EXEC, special="monthly")
     add("readiness-current", "executive", "Current operational readiness", "الجاهزية العملياتية الحالية", PERM_REPORTS_EXEC, special="readiness")
     add("decision-support", "executive", "Decision support summary", "ملخص دعم القرار", PERM_REPORTS_EXEC, special="decision")
@@ -387,7 +393,8 @@ def catalogue() -> dict[str, dict]:
         add(f"{name}-register", cat, f"{en} register", f"سجل {ar}", dataset=name)
         for key, f_en, f_ar, _kind, group in fields:
             if group:
-                add(f"{name}-by-{key}", cat, f"{en} by {f_en.lower()}", f"{ar} حسب {f_ar}", dataset=name, group=key)
+                ar_title = _AR_TITLE_OVERRIDES.get(f"{name}-by-{key}", f"{ar} حسب {f_ar}")
+                add(f"{name}-by-{key}", cat, f"{en} by {f_en.lower()}", ar_title, dataset=name, group=key)
     for name, key, en, ar, where in _named_filters():
         add(f"{name}-{key}", _DATASET_CATEGORY[name], en, ar, dataset=name, where=where)
     for metric, en, ar in TREND_METRICS:
@@ -520,8 +527,8 @@ def _special(actor, report: dict, lang: str) -> dict:
                 continue
             sections.append({"kind": "kpis", "title": _t(en, ar, lang), "items": [
                 {"label": _t(*labels[k], lang), "value": v["value"], "trend": v.get("trend")} for k, v in d[block].items()]})
-        sections.append({"kind": "table", "title": _t("Completion by department", "الاستكمال حسب الإدارة", lang),
-                         "columns": [{"key": "department", "label": _t("Department", "الإدارة", lang), "kind": "text"},
+        sections.append({"kind": "table", "title": _t("Completion by department", "الاستكمال حسب المجموعة", lang),
+                         "columns": [{"key": "department", "label": _t("Department", "المجموعة", lang), "kind": "text"},
                                      {"key": "required", "label": _t("Required", "المطلوب", lang), "kind": "number"},
                                      {"key": "available", "label": _t("Available", "المتوفر", lang), "kind": "number"},
                                      {"key": "gap", "label": _t("Current gap", "الفجوة الحالية", lang), "kind": "number"},
@@ -535,8 +542,8 @@ def _special(actor, report: dict, lang: str) -> dict:
                              "items": [_t(a["textEn"], a["textAr"], lang) for a in d["attention"]]})
         else:
             m = operations_service.maintenance(actor, {})
-            sections.append({"kind": "table", "title": _t("Readiness by department", "الجاهزية حسب الإدارة", lang),
-                             "columns": [{"key": "department", "label": _t("Department", "الإدارة", lang), "kind": "text"},
+            sections.append({"kind": "table", "title": _t("Readiness by department", "جاهزية المجاميع", lang),
+                             "columns": [{"key": "department", "label": _t("Department", "المجموعة", lang), "kind": "text"},
                                          {"key": "operational", "label": _t("Operational", "العملياتية", lang), "kind": "percent"},
                                          {"key": "technical", "label": _t("Technical", "الفنية", lang), "kind": "percent"},
                                          {"key": "mission", "label": _t("Mission", "المهمة", lang), "kind": "percent"},
@@ -571,7 +578,7 @@ def _special(actor, report: dict, lang: str) -> dict:
         sections.append({"kind": "table", "title": _t("Assets that became unavailable (30 days)", "الأصول التي أصبحت غير متاحة (30 يوماً)", lang),
                          "columns": [{"key": "asset", "label": _t("Asset", "الأصل", lang), "kind": "text"},
                                      {"key": "status", "label": _t("Status", "الحالة", lang), "kind": "text"},
-                                     {"key": "department", "label": _t("Department", "الإدارة", lang), "kind": "text"},
+                                     {"key": "department", "label": _t("Department", "المجموعة", lang), "kind": "text"},
                                      {"key": "date", "label": _t("Date", "التاريخ", lang), "kind": "date"}], "rows": changed})
         projects = [r for r in _projects(actor, lang) if (r["delay"] or 0) > 0]
         sections.append({"kind": "table", "title": _t("Delayed projects", "المشاريع المتأخرة", lang),

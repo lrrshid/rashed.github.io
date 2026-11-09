@@ -173,7 +173,7 @@ def _all_alerts(rules: dict) -> list[dict]:
                               int(r["department"]["id"])))
     for e in session.scalars(select(TestEvent).where(TestEvent.archived_at.is_(None))):
         if e.status_code == "FAILED" and 0 <= (today - e.test_date).days <= days("TEST_FAILED"):
-            out.append(_alert("TEST_FAILED", e.id, f"{e.code} {e.title_en} failed.", f"{e.code} {e.title_ar}: راسب.",
+            out.append(_alert("TEST_FAILED", e.id, f"{e.code} {e.title_en} failed.", f"{e.code} {e.title_ar}: غير ناجح.",
                               "/testing", e.department_id, e.test_date))
         if e.status_code == "PLANNED" and 0 <= (e.test_date - today).days <= days("TEST_UPCOMING"):
             out.append(_alert("TEST_UPCOMING", e.id, f"{e.code} {e.title_en} on {_d(e.test_date)}.",

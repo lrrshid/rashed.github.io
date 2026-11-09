@@ -12,7 +12,7 @@ ROLES = (
     ("SYS_ADMIN", "System administrator", "مدير النظام", "ALL", ALL_PERMISSIONS),
     ("EXECUTIVE", "Executive leadership", "القيادة التنفيذية", "ALL",
      ("view", "reports.view", "reports.exec", "export")),
-    ("DEPT_HEAD", "Head of department", "رئيس الإدارة", "DEPARTMENT",
+    ("DEPT_HEAD", "Head of department", "رئيس المجموعة", "DEPARTMENT",
      ("view", "edit.requirements", "reports.view", "reports.exec", "export")),
     ("CAPABILITY_MGR", "Capability manager", "مدير القدرات", "ALL",
      ("view", "edit.requirements", "edit.models", "edit.assets", "edit.documents", "reports.view", "reports.exec",
@@ -81,7 +81,7 @@ STATUSES = {
         ("AWAITING_RESULT", "Awaiting result", "بانتظار النتيجة", "amber", 0),
         ("PASSED", "Passed", "ناجح", "green", 1),
         ("CONDITIONAL", "Conditional pass", "نجاح مشروط", "amber", 1),
-        ("FAILED", "Failed", "راسب", "red", 1),
+        ("FAILED", "Failed", "غير ناجح", "red", 1),
         ("CANCELLED", "Cancelled", "ملغى", "grey", 1),
     ),
     "MAINTENANCE": (

@@ -6,6 +6,13 @@ tested, what is delayed, and what requires leadership attention. Bilingual (Arab
 Specification: `Capability_Portfolio_Command_Brochure_AR 2.pdf`. Stack and conventions follow ship-project
 (Flask + SQLAlchemy, plain-JS frontend, SQLite demo → Oracle, company-directory sign-in).
 
+Shown to users as **National Guard Capability System / نظام قدرات الحرس الوطني**, subtitle «Capability management / إدارة القدرات» (`app.name` in `frontend/js/labels.js`
+and `frontend/js/i18n/ar/index.js`; Excel/PowerPoint export metadata in `backend/app/core/xlsx.py`, `pptx.py`) with
+the National Guard shield as logo and favicon (`frontend/assets/icons/ng-logo.png`, cut from the official logo).
+Arabic wording: a department is «المجموعة» (plural «المجاميع», the all-departments filter «مجاميع الحرس الوطني»), a
+failed test «غير ناجح», executive reports «التقارير الرئيسية», a milestone owner «مدير المشروع». Some Arabic report
+titles are worded by hand (`_AR_TITLE_OVERRIDES` in `report_service.py`). English labels are unchanged.
+
 ## Start
 
 ```
@@ -13,7 +20,8 @@ copy .env.example .env
 powershell -ExecutionPolicy Bypass -File scripts\run_dev.ps1
 ```
 
-Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`). The first start creates
+Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`), or click **Try the demo**
+on the sign-in page (shown only when the mock accounts exist: demo profile, local machine, no LDAP). The first start creates
 `data/cpc-demo.db` and seeds the fictional demo world (4 departments, 4 categories, 12 models, 66 assets,
 15 requirements, 14 projects, 140 milestones, risks, issues, 13 months of KPI history).
 
