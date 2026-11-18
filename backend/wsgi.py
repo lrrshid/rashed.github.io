@@ -1,7 +1,8 @@
 """WSGI entry point.
 
 Development:  flask --app wsgi run          (from the backend/ folder, or use scripts/run_dev.ps1)
-Production:   waitress-serve --listen=127.0.0.1:8080 --ident= wsgi:app   (behind the company HTTPS proxy)
+Production:   python serve.py   (waitress behind the HTTPS proxy; APP_LISTEN, APP_THREADS, TRUSTED_PROXY_COUNT;
+              the Docker image runs exactly this, see internet-to-local.md)
 """
 import sys
 

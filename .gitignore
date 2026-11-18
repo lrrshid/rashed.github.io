@@ -36,3 +36,14 @@ data/reports-test/
 
 # Temporary work folder (never committed)
 .work/
+
+# Offline deployment (internet-to-local.md): bundles, and what exists only on a VM (settings, data, keys, backups)
+dist/
+deployment/app.env
+deployment/.env
+deployment/data/
+deployment/backups/
+deployment/nginx/certs/*
+!deployment/nginx/certs/README.md
+deployment/ldap/*
+!deployment/ldap/README.md

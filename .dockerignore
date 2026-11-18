@@ -1,0 +1,17 @@
+# The image gets only what it runs: backend/ (without tests and dev tools), frontend/ and db/.
+# Everything else stays out, above all .env, ldap.env, oracle-local.env, data/, keys and certificates.
+*
+!backend/
+!frontend/
+!db/
+backend/tests/
+backend/requirements-dev.txt
+backend/pytest.ini
+**/__pycache__/
+**/*.pyc
+**/.env
+**/*.env
+**/*.pem
+**/*.key
+**/*.crt
+**/*.cer

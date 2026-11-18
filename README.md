@@ -29,6 +29,13 @@ Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`
 Everything runs on the local network: the application server, the database (SQLite demo or Oracle), the company
 directory (LDAP) and the browsers. There is no e-mail, no CDN and no online service; fonts and icons are in the project.
 
+**The company's Linux VM (Docker): read `internet-to-local.md`.** On the internet-connected PC,
+`predeployment\build.ps1` builds one file `dist\cpc-<version>.tar.gz` (the app image, nginx, the deployment files,
+the Oracle scripts); on the VM it is unpacked and started with `scripts/install.sh` (`deployment/README.md`).
+
+**A Windows server instead** (the steps below): the same offline packages from `wheelhouse\`; in production run
+`python serve.py` from `backend\` behind the company HTTPS proxy with `TRUSTED_PROXY_COUNT` set.
+
 1. On a machine **with** internet access, once: `powershell -ExecutionPolicy Bypass -File scripts\build_wheelhouse.ps1`
    (all pinned Python packages for Windows 64-bit / Python 3.12 into `wheelhouse\`; add `-Production` for runtime
    packages only).
@@ -69,6 +76,17 @@ a colours button (top bar and sign-in page) with ready-made palettes for this de
 saved for everyone; saving in Settings > Appearance clears it on that device), which also leads administrators to
 Settings > Appearance.
 
+**Offline deployment bundle (18 Nov 2026).** `internet-to-local.md` is the guide for moving the system to the
+company's offline Linux VM: `predeployment/` (Dockerfile, `build.ps1`), `deployment/` (docker-compose with the app
+behind nginx HTTPS, `app.env.example`, `scripts/install.sh` and `scripts/app.sh`, the VM install guide),
+`docs/IT_REQUEST.md` (what to ask IT and the DBA). The production server is `backend/serve.py`: waitress, one
+process (the sign-in throttle is in memory), and behind a proxy it keeps the `X-Forwarded-*` headers that waitress
+otherwise strips (all users would have shared the proxy's address in the per-address sign-in limit).
+`tests/unit/test_deployment.py` keeps the pieces consistent. Verified 18 Nov 2026 with Docker 29.9.3: the bundle
+builds (86 MB) and runs under Compose behind nginx (see `internet-to-local.md` section 9 for what was checked);
+`install.sh` was exercised with a stand-in docker in Git Bash. Still to try: the Oracle profile in the container and a
+real Linux VM.
+
 **Conducting units (11 Nov 2026).** Tests record the section that conducts them (`test_event.unit_id`). Units are a
 two-level list `org_unit` (a directorate, then its sections; Settings > «Directorates and sections»), seeded as
 «مديرية تطوير القدرات» with «شعبة الأنظمة الأمنية» and «شعبة تطوير القدرات» (`reference_data.ORG_UNITS`). The testing
@@ -92,4 +110,4 @@ conducting section». Units do not limit access (department scope is unchanged).
 - `take-snapshot` (daily KPI values) · `run-schedules` (daily scheduled reports) · `check-ldap [--username U12345]` · `set-break-glass-password` · `purge-sessions`
 
 ### Tests
-`scripts\run_tests.ps1` runs the unit + integration suite (335 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).
+`scripts\run_tests.ps1` runs the unit + integration suite (349 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).

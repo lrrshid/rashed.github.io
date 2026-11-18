@@ -133,11 +133,13 @@ password. The emergency account is set with `flask --app wsgi set-break-glass-pa
 
 ## 6. Document files
 
-Uploaded files are stored on the application server under `data/files/<first two hex>/<sha256>` (one copy per content). Include that folder in the server backup together with the database.
+Uploaded files are stored on the application server under `data/files/<first two hex>/<sha256>` (one copy per content). Include that folder in the server backup together with the database. On the Docker VM it is
+`/opt/cpc/data/files` (`bash ./scripts/app.sh backup`; see `deployment/README.md`).
 
 ## 7. Scheduled reports
 
-Run `flask --app wsgi run-schedules` once a day (Windows Task Scheduler) and `flask --app wsgi take-snapshot` once a day for the KPI trends. Generated files go to `REPORTS_OUTPUT_DIR/<output folder>/<date>/` (a local folder or a shared folder on the local network; the system is air-gapped and sends no e-mail) and can be downloaded from Reports > Report history.
+Run `flask --app wsgi run-schedules` once a day (Windows Task Scheduler; on the Docker VM cron with `bash ./scripts/app.sh flask run-schedules`, see
+`deployment/README.md` section 4) and `flask --app wsgi take-snapshot` once a day for the KPI trends. Generated files go to `REPORTS_OUTPUT_DIR/<output folder>/<date>/` (a local folder or a shared folder on the local network; the system is air-gapped and sends no e-mail) and can be downloaded from Reports > Report history.
 
 ## 8. Testing against a local Oracle
 
