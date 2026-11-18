@@ -3,6 +3,7 @@ a key missing from the table answers its default, so a new rule works before any
 from __future__ import annotations
 
 import json
+import re
 
 from flask import g, has_request_context
 from sqlalchemy import select
@@ -57,6 +58,8 @@ def _check_shape(key: str, value) -> None:
                 raise ValidationFailed.field("value", f"{k} must be a number of 0 or more.")
             if isinstance(default[k], str) and not (isinstance(v, str) and 1 <= len(v) <= 200):
                 raise ValidationFailed.field("value", f"{k} must be a text of 1 to 200 characters.")
+        if key == "ui.theme" and not all(re.fullmatch(r"#[0-9a-fA-F]{6}", v) for v in value.values()):
+            raise ValidationFailed.field("value", "Colours must be written as #rrggbb.")
         if key == "readiness.weights" and round(sum(value.values())) != 100:
             raise ValidationFailed.field("value", "The weights must add up to 100.")
     elif isinstance(default, (int, float)):

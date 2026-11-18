@@ -5,12 +5,13 @@ import { h, icon, replace } from '../lib/dom.js';
 import { isAdmin, lookupList, setLookups, statuses } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatDateTime } from '../lib/format.js';
-import { card, dataTable, errorBox, listOptions, loadingBox, pager, tabs, toast } from '../components/ui.js';
+import { card, dataTable, errorBox, listOptions, loadingBox, lookupName, pager, tabs, toast } from '../components/ui.js';
 import { diff, formDialog } from './forms.js';
 import { fieldLabel } from './field-labels.js';
+import { DEFAULT_THEME, PRESETS, applyTheme, effectiveTheme, normalise, rememberTheme, setPersonalPalette } from '../lib/theme.js';
 
-const TABS = ['departments', 'categories', 'sites', 'organizations', 'contracts', 'statuses', 'workflows', 'specFields', 'ai',
-  'rules', 'roles', 'users', 'alertRules', 'audit'];
+const TABS = ['departments', 'categories', 'sites', 'units', 'organizations', 'contracts', 'statuses', 'workflows', 'specFields', 'ai',
+  'appearance', 'rules', 'roles', 'users', 'alertRules', 'audit'];
 const COLORS = ['green', 'amber', 'red', 'blue', 'purple', 'teal', 'grey', 'orange', 'pink', 'dark'];
 // Business-rule keys contain dots (assets.available_statuses), so they are looked up in the rules object directly.
 // Permission codes contain dots too (edit.requirements).
@@ -48,6 +49,8 @@ function listSpec(kind, editing) {
       { key: 'section', label: 'Section', type: 'select', required: true, options: ['PERFORMANCE', 'SENSORS', 'COMMUNICATIONS', 'ENVIRONMENT', 'OTHER'].map((s) => ({ value: s, label: t(`model.sections.${s}`) })) },
       { key: 'code', label: t('fields.code'), required: true, max: 40, dir: 'ltr', readonly: editing }, ...nameFields, { key: 'unit', label: 'Unit', max: 20 },
       { key: 'dataType', label: 'Type', type: 'select', required: true, options: ['TEXT', 'NUMBER', 'BOOL'].map((v) => ({ value: v, label: v })) }, sortField];
+    case 'units': return [codeField(editing), ...nameFields,
+      { key: 'parentId', label: t('settings.unitParent'), type: 'select', options: listOptions(lookupList('units').filter((u) => !u.parentId)) }, sortField];
     default: return base;
   }
 }
@@ -60,19 +63,24 @@ export async function render(container, ctx) {
   let tab = ctx.query.tab || (window.location.pathname === '/audit' ? 'audit' : 'departments');
   const body = h('div');
   const bar = h('div');
+  // A direct way to the interface colours (the Appearance tab), at the top of the page.
+  const colours = h('button', { type: 'button', class: 'btn btn-primary', onclick: () => { tab = 'appearance'; ctx.setQuery({ tab }); draw(); } },
+    icon('palette'), t('settings.appearance.open'));
   container.append(h('div', { class: 'page-head' }, h('div', {}, h('h1', { tabindex: '-1', text: t('settings.title') }),
-    h('div', { class: 'page-sub', text: t('settings.subtitle') }))), bar, body);
+    h('div', { class: 'page-sub', text: t('settings.subtitle') })), h('div', { class: 'actions' }, colours)), bar, body);
   const drawTabs = () => replace(bar, tabs(TABS.map((k) => ({ key: k, label: t(`settings.tabs.${k}`) })), tab, (k) => { tab = k; ctx.setQuery({ tab: k }); draw(); }));
 
   async function refreshLookups() { setLookups(await api.get('/lookups')); }
 
   async function draw() {
     drawTabs();
+    if (tab !== 'appearance') applyTheme(effectiveTheme());   // leave an unsaved colour preview behind
     replace(body, loadingBox());
     try {
-      if (['departments', 'categories', 'sites', 'organizations', 'contracts', 'statuses', 'specFields'].includes(tab)) await simpleList(tab);
+      if (['departments', 'categories', 'sites', 'units', 'organizations', 'contracts', 'statuses', 'specFields'].includes(tab)) await simpleList(tab);
       else if (tab === 'workflows') await workflows();
       else if (tab === 'ai') await aiSettings();
+      else if (tab === 'appearance') await appearance();
       else if (tab === 'rules') await rules();
       else if (tab === 'roles') await roles();
       else if (tab === 'users') await users();
@@ -101,6 +109,7 @@ export async function render(container, ctx) {
       kind === 'specFields' ? { key: 'cat', label: t('fields.category'), render: (e) => (lookupList('categories').find((c) => c.id === e.categoryId) || {}).code } : null,
       { key: 'code', label: t('fields.code'), render: (e) => h('span', { class: 'mono', text: e.code }) },
       { key: 'name', label: t('fields.nameEn'), render: (e) => name(e, kind === 'contracts' ? 'title' : 'name') },
+      kind === 'units' ? { key: 'parent', label: t('settings.unitParent'), render: (e) => (e.parentId ? lookupName('units', e.parentId) : null) } : null,
       kind === 'statuses' ? { key: 'color', label: t('settings.color'), render: (e) => h('span', { class: `badge c-${e.color}`, text: e.color }) } : null,
       { key: 'state', label: t('fields.status'), render: (e) => (e.archived ? h('span', { class: 'badge c-grey', text: t('common.archived') }) : null) },
       { key: 'actions', label: '', render: (e) => h('span', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => editList(kind, e) }, icon('edit'), t('common.edit')), archiveBtn(kind, e)) },
@@ -157,7 +166,7 @@ export async function render(container, ctx) {
   async function rules() {
     const d = await api.get('/settings');
     const statusChoices = { 'assets.available_statuses': 'ASSET', 'assets.operational_statuses': 'ASSET', 'assets.pipeline_statuses': 'ASSET', 'projects.forecast_statuses': 'PROJECT' };
-    replace(body, h('div', { class: 'grid grid-2' }, d.items.map((s) => {
+    replace(body, h('div', { class: 'grid grid-2' }, d.items.filter((s) => !s.key.startsWith('ui.')).map((s) => {
       let spec; let values; let toValue;
       if (Array.isArray(s.value)) {
         const domain = statusChoices[s.key];
@@ -179,6 +188,52 @@ export async function render(container, ctx) {
         title: ruleLabel(s.key), size: 'md', spec, values, withReason: true,
         submit: (data) => api.put(`/settings/${s.key}`, { value: toValue(data), version: s.version, reason: data.reason }), onSaved: draw }) }, icon('edit'), t('common.edit')) });
     })));
+  }
+
+  // Interface colours: a ready-made palette or four colours of one's own, previewed at once, saved for everyone.
+  async function appearance() {
+    const row = (await api.get('/settings')).items.find((s) => s.key === 'ui.theme');
+    let current = normalise(row.value);
+    const KEYS = ['sidebar', 'primary', 'accent', 'background'];
+    const same = (a, b) => KEYS.every((k) => a[k] === b[k]);
+    const swatches = (c) => h('span', { class: 'theme-swatches' }, KEYS.map((k) => h('span', { class: 'theme-swatch', style: `background:${c[k]}` })));
+    const presetButtons = Object.entries(PRESETS).map(([key, colours]) => {
+      const btn = h('button', { type: 'button', class: 'theme-preset', 'aria-pressed': 'false', onclick: () => set(colours) },
+        swatches(colours), h('span', { text: t(`settings.appearance.presets.${key}`) }));
+      return { btn, colours };
+    });
+    const inputs = {};
+    const codes = {};
+    const colourRows = KEYS.map((k) => {
+      inputs[k] = h('input', { type: 'color', 'aria-label': t(`settings.appearance.${k}`) });
+      codes[k] = h('span', { class: 'mono' });
+      inputs[k].addEventListener('input', () => set({ ...current, [k]: inputs[k].value }));
+      return h('label', { class: 'theme-color' }, inputs[k], h('span', {}, h('div', { text: t(`settings.appearance.${k}`) }), codes[k]));
+    });
+    function set(colours) {
+      current = normalise(colours);
+      applyTheme(current);
+      for (const k of KEYS) { inputs[k].value = current[k]; codes[k].textContent = current[k]; }
+      for (const p of presetButtons) p.btn.setAttribute('aria-pressed', same(p.colours, current) ? 'true' : 'false');
+    }
+    const save = h('button', { type: 'button', class: 'btn btn-primary', text: t('settings.appearance.save'), onclick: async () => {
+      save.disabled = true;
+      try {
+        await api.put('/settings/ui.theme', { value: current, version: row.version, reason: t('settings.appearance.reason') });
+        rememberTheme(current);
+        setPersonalPalette(null);   // this device shows what was just saved for everyone
+        toast(t('settings.appearance.saved'));
+        await draw();
+      } catch (e) { toast(e.message, true); } finally { save.disabled = false; }
+    } });
+    replace(body,
+      card(t('settings.appearance.presetsTitle'), h('div', {}, h('p', { class: 'muted small', text: t('settings.appearance.intro') }),
+        h('div', { class: 'theme-presets' }, presetButtons.map((p) => p.btn)))),
+      h('div', { class: 'section-label' }),
+      card(t('settings.appearance.custom'), h('div', { class: 'theme-colors' }, colourRows), {
+        actions: h('span', { class: 'actions' },
+          h('button', { type: 'button', class: 'btn', text: t('settings.appearance.reset'), onclick: () => set(DEFAULT_THEME) }), save) }));
+    set(current);
   }
 
   async function roles() {

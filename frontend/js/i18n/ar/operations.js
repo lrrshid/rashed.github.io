@@ -7,7 +7,7 @@ export default {
     byModel: 'النتائج حسب النموذج', timeline: 'الخط الزمني للتجارب', types: { INTERNAL: 'داخلية', EXTERNAL: 'خارجية' },
     fields: { code: 'رقم الاختبار', title: 'الاختبار', titleEn: 'الاختبار (إنجليزي)', titleAr: 'الاختبار (عربي)', model: 'النموذج',
       asset: 'الأصل', project: 'المشروع', type: 'نوع التجربة', date: 'تاريخ الاختبار', score: 'الدرجة', result: 'النتيجة',
-      resultEn: 'النتيجة (إنجليزي)', resultAr: 'النتيجة (عربي)', site: 'الموقع' },
+      resultEn: 'النتيجة (إنجليزي)', resultAr: 'النتيجة (عربي)', site: 'الموقع', unit: 'الشعبة المنفذة' },
   },
   maintenance: {
     title: 'الصيانة والجاهزية الفنية', add: 'أمر صيانة', newTitle: 'أمر صيانة جديد', editTitle: 'تعديل {code}',

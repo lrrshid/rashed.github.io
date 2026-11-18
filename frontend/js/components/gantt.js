@@ -48,7 +48,7 @@ export function gantt(rows, { from, to, today, scale = 'MONTH', rowHeight = 28, 
 
   rows.forEach((row, i) => {
     const y = headerH + i * rowHeight;
-    if (i % 2 === 1) svg.append(el('rect', { x: 0, y, width: labelWidth + chartW, height: rowHeight, fill: '#faf9f6' }));
+    if (i % 2 === 1) svg.append(el('rect', { x: 0, y, width: labelWidth + chartW, height: rowHeight, class: 'stripe' }));
     const label = el('text', { x: 8 + (row.indent ? 16 : 0), y: y + (row.sub ? 12 : 17), 'font-weight': row.indent ? 400 : 600, direction: isRtl() ? 'rtl' : 'ltr' },
       truncate(row.label, row.indent ? 44 : 40));
     if (isRtl()) { label.setAttribute('x', labelWidth - 8 - (row.indent ? 16 : 0)); label.setAttribute('text-anchor', 'start'); }

@@ -157,7 +157,8 @@ def _issues(actor, lang):
 
 def _tests(actor, lang):
     return [{"code": e["code"], "test": _t(e["titleEn"], e["titleAr"], lang), "model": _n(e["model"], lang),
-             "department": _n(e["department"], lang), "type": _code("testType", e["testType"], lang), "date": e["testDate"],
+             "department": _n(e["department"], lang), "unit": _n(e["unit"], lang),
+             "type": _code("testType", e["testType"], lang), "date": e["testDate"],
              "status": _status("TEST", e["status"], lang), "_status": e["status"], "score": e["score"],
              "project": (e["project"] or {}).get("code", "")}
             for e in testing_service.list_tests(actor, {})["items"]]
@@ -257,7 +258,8 @@ DATASETS = {
                F("raised", "Raised", "تاريخ الرصد", "date"), F("target", "Target", "الموعد المستهدف", "date"),
                F("status", "Status", "الحالة", group=True), F("escalated", "Escalated", "مصعّدة", group=True)]),
     "tests": (_tests, _t, [F("code", "Test ID", "رقم الاختبار"), F("test", "Test", "الاختبار"), F("model", "Model", "النموذج", group=True),
-               F("department", "Department", "المجموعة", group=True), F("type", "Type", "النوع", group=True),
+               F("department", "Department", "المجموعة", group=True),
+               F("unit", "Conducting section", "الشعبة المنفذة", group=True), F("type", "Type", "النوع", group=True),
                F("date", "Date", "التاريخ", "date"), F("status", "Result", "النتيجة", group=True), F("score", "Score", "الدرجة", "number"),
                F("project", "Project", "المشروع", group=True)]),
     "maintenance": (_maintenance, _t, [F("code", "Order", "الأمر"), F("asset", "Asset", "الأصل"), F("model", "Model", "النموذج", group=True),

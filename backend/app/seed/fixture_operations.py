@@ -63,6 +63,14 @@ TESTS = (
      None, None, None),
 )
 
+# The section (reference_data.ORG_UNITS) that conducts each test.
+TEST_UNITS = {
+    "TST-001": "CAP-DEV", "TST-002": "SEC-SYS", "TST-003": "SEC-SYS", "TST-004": "CAP-DEV", "TST-005": "SEC-SYS",
+    "TST-006": "CAP-DEV", "TST-007": "SEC-SYS", "TST-008": "CAP-DEV", "TST-009": "CAP-DEV", "TST-010": "CAP-DEV",
+    "TST-011": "CAP-DEV", "TST-012": "SEC-SYS", "TST-013": "SEC-SYS", "TST-014": "CAP-DEV", "TST-015": "CAP-DEV",
+    "TST-016": "SEC-SYS", "TST-017": "SEC-SYS", "TST-018": "CAP-DEV",
+}
+
 # code, asset code, type, English, Arabic, status, start offset, expected end offset, actual end offset, progress,
 # cost, parts shortage, parts
 MAINTENANCE = (

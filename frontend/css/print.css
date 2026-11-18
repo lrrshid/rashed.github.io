@@ -1,8 +1,19 @@
 /* Printing (and "Save as PDF"): the page content only, on white, with its report header. */
 @media print {
+  /* Paper is always light, whatever the screen mode (these override the theme set on <html>). */
+  :root[data-mode="dark"] {
+    color-scheme: light;
+    --bg: #ffffff !important; --surface: #ffffff !important; --surface-muted: #faf9f6 !important;
+    --border: #e3dfd5 !important; --border-strong: #8a949b !important; --text: #1c252d !important; --text-muted: #5b646b !important;
+    --green: #12804a !important; --green-bg: #e3f4ea !important; --amber: #a15c00 !important; --amber-bg: #fdf0d8 !important;
+    --red: #b42318 !important; --red-bg: #fde7e4 !important; --blue: #1f5fbf !important; --blue-bg: #e4edfb !important;
+    --purple: #5b3fa6 !important; --purple-bg: #ece7f8 !important; --teal: #0f766e !important; --teal-bg: #dcf3f0 !important;
+    --orange: #b4500b !important; --orange-bg: #fde8d7 !important; --pink: #a7286b !important; --pink-bg: #fbe4ef !important;
+    --grey: #59626a !important; --grey-bg: #eceae5 !important; --dark: #2f3a44 !important; --dark-bg: #e2e6ea !important;
+  }
   @page { size: A4 landscape; margin: 12mm; }
   body { background: #fff; font-size: 11px; }
-  .sidebar, .topbar, .preview-banner, .toasts, .skip-link, .no-print, .pager button, .actions .btn { display: none !important; }
+  .scene, .sidebar, .topbar, .preview-banner, .toasts, .skip-link, .no-print, .pager button, .actions .btn { display: none !important; }
   .app-main { padding: 0; }
   .card, .kpi, .table-wrap { box-shadow: none; break-inside: avoid; }
   .print-only { display: block !important; }

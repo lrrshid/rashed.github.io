@@ -5,6 +5,8 @@ import { h, icon, replace } from './lib/dom.js';
 import { language, setLanguage } from './lib/i18n.js';
 import { departmentsInScope, isAdmin, lookupList, setDepartment, setViewAs, state, user } from './lib/state.js';
 import { name, t } from './labels.js';
+import { mode, setMode } from './lib/theme.js';
+import { paletteButton } from './components/palette.js';
 import { navigate } from './router.js';
 
 // [key, path, icon, children]
@@ -89,11 +91,28 @@ export function renderTopbar() {
     select.addEventListener('change', () => { setViewAs(select.value || null); window.location.reload(); });
     tools.append(h('label', { class: 'view-as' }, h('span', { text: t('top.viewAs') }), select));
   }
-  tools.append(h('span', { class: 'muted small', text: real.displayName }),
+  // The signed-in person: initials in a gold badge, then the name.
+  const words = (real.displayName || '').trim().split(/\s+/).filter(Boolean);
+  const initials = words.length ? `${words[0][0]}${words.length > 1 ? words[words.length - 1][0] : ''}`.toUpperCase() : '?';
+  tools.append(h('span', { class: 'topbar-user' }, h('span', { class: 'topbar-avatar', 'aria-hidden': 'true', text: initials }),
+    h('span', { text: real.displayName })),
     h('button', { type: 'button', class: 'btn btn-icon', 'aria-label': t('top.signOut'), title: t('top.signOut'), onclick: signOut }, icon('logout')));
+
+  // At the start of the bar (top right in Arabic): light / dark mode and the colours for this browser (administrators
+  // also reach the colours saved for everyone from the colours panel).
+  const modeBtn = h('button', { type: 'button', class: 'btn btn-icon', 'aria-label': t('top.darkMode'), title: t('top.darkMode'),
+    'aria-pressed': mode() === 'dark' ? 'true' : 'false' }, icon(mode() === 'dark' ? 'sun' : 'moon'));
+  modeBtn.addEventListener('click', () => {
+    const next = mode() === 'dark' ? 'light' : 'dark';
+    setMode(next);
+    modeBtn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    replace(modeBtn, icon(next === 'dark' ? 'sun' : 'moon'));
+  });
+  const quick = h('div', { class: 'topbar-quick' }, modeBtn, paletteButton({ buttonClass: 'btn btn-icon', forEveryone: isAdmin() }));
 
   replace(bar,
     h('button', { type: 'button', class: 'btn btn-icon menu-btn', 'aria-label': t('top.menu'), onclick: () => document.getElementById('app').classList.toggle('nav-open') }, icon('menu')),
+    quick,
     h('div', { class: 'global-search' }, icon('search'), search),
     tools);
   const banner = document.querySelector('.preview-banner');

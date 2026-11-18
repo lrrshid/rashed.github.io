@@ -12,6 +12,12 @@ import { diff, formDialog } from './forms.js';
 const statusOptions = (domain) => statuses(domain).filter((s) => !s.archived).map((s) => ({ value: s.code, label: name(s) }));
 const head = (title, sub, actions) => h('div', { class: 'page-head' }, h('div', {}, h('h1', { tabindex: '-1', text: title }),
   sub ? h('div', { class: 'page-sub', text: sub }) : null), actions || null);
+// Units that conduct tests, as select options: each directorate followed by its sections ("— section").
+function unitOptions() {
+  const units = lookupList('units').filter((u) => !u.archived);
+  return units.filter((u) => !u.parentId).flatMap((d) => [{ value: d.id, label: name(d) },
+    ...units.filter((u) => u.parentId === d.id).map((u) => ({ value: u.id, label: `— ${name(u)}` }))]);
+}
 const editBtn = (onClick) => h('button', { type: 'button', class: 'btn btn-sm', 'aria-label': t('common.edit'), onclick: onClick }, icon('edit'));
 
 export async function render(container, ctx) {
@@ -21,17 +27,29 @@ export async function render(container, ctx) {
 }
 
 // ---------------------------------------------------------------- testing
-async function testing(container) {
+async function testing(container, ctx) {
   const body = h('div');
   container.append(body);
+  // The conducting unit: a directorate (the tests of all its sections) or one section; the first directorate by
+  // default. Kept in the address bar.
+  const units = unitOptions();
+  let unit = (ctx && ctx.query.unit) || (units[0] ? units[0].value : '');
+  function unitFilter() {
+    const sel = h('select', { class: 'select', 'aria-label': t('testing.fields.unit') },
+      units.map((o) => h('option', { value: o.value, text: o.label })));
+    sel.value = unit;
+    sel.addEventListener('change', () => { unit = sel.value; if (ctx) ctx.setQuery({ unit }); load(); });
+    return sel;
+  }
   async function load() {
     replace(body, loadingBox());
     let d;
-    try { d = await api.get('/tests', { department: state.department || undefined }); } catch (e) { replace(body, errorBox(e, load)); return; }
+    try { d = await api.get('/tests', { department: state.department || undefined, unit: unit || undefined }); } catch (e) { replace(body, errorBox(e, load)); return; }
     const editable = canEdit('edit.testing');
     const k = d.kpis;
     replace(body,
-      head(t('testing.title'), null, editable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => testForm(null, load) }, icon('plus'), t('testing.add')) : null),
+      head(t('testing.title'), null, h('div', { class: 'actions' }, unitFilter(),
+        editable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => testForm(null, load) }, icon('plus'), t('testing.add')) : null)),
       h('div', { class: 'kpis' }, ['total', 'internal', 'external', 'planned', 'inProgress', 'passed', 'conditional', 'failed', 'upcoming90'].map((key) =>
         kpiTile({ label: t(`testing.kpi.${key}`), value: formatCount(k[key]), tone: key === 'failed' && k[key] ? 'red' : key === 'passed' ? 'green' : undefined })),
       kpiTile({ label: t('testing.kpi.passRate'), value: formatPercent(k.passRate) })),
@@ -43,7 +61,7 @@ async function testing(container) {
         legend([{ color: '#12a150', label: t('testing.kpi.passed') }, { color: '#e3a92b', label: t('testing.kpi.conditional') }, { color: '#d24b3e', label: t('testing.kpi.failed') }]))),
         card(t('testing.timeline'), h('ul', { class: 'timeline' }, d.items.slice(0, 10).map((e) => h('li', {},
           h('div', {}, h('strong', { class: 'mono', text: `${e.code} ` }), name(e, 'title'), ' ', statusBadge('TEST', e.status)),
-          h('div', { class: 'muted small', text: `${formatDate(e.testDate)} · ${t(`testing.types.${e.testType}`)} · ${refName(e.model)}${e.score !== null ? ` · ${e.score}/100` : ''}` }),
+          h('div', { class: 'muted small', text: `${formatDate(e.testDate)} · ${t(`testing.types.${e.testType}`)} · ${refName(e.model)}${e.unit ? ` · ${name(e.unit)}` : ''}${e.score !== null ? ` · ${e.score}/100` : ''}` }),
           e.resultEn ? h('div', { class: 'small', text: name(e, 'result') }) : null))))),
       h('div', { class: 'section-label' }),
       dataTable([
@@ -54,6 +72,7 @@ async function testing(container) {
         { key: 'date', label: t('testing.fields.date'), render: (e) => formatDate(e.testDate) },
         { key: 'site', label: t('testing.fields.site'), render: (e) => refName(e.site) },
         { key: 'dept', label: t('fields.department'), render: (e) => refName(e.department) },
+        { key: 'unit', label: t('testing.fields.unit'), render: (e) => refName(e.unit) },
         { key: 'project', label: t('testing.fields.project'), render: (e) => (e.project ? h('a', { href: `/projects/${e.project.id}`, class: 'mono', text: e.project.code }) : null) },
         { key: 'status', label: t('fields.status'), render: (e) => statusBadge('TEST', e.status) },
         { key: 'score', label: t('testing.fields.score'), num: true, render: (e) => (e.score === null ? null : String(e.score)) },
@@ -76,13 +95,14 @@ async function testForm(test, onSaved) {
     { key: 'testType', label: t('testing.fields.type'), type: 'select', required: true, options: ['INTERNAL', 'EXTERNAL'].map((x) => ({ value: x, label: t(`testing.types.${x}`) })) },
     { key: 'testDate', label: t('testing.fields.date'), type: 'date', required: true },
     { key: 'siteId', label: t('testing.fields.site'), type: 'select', options: listOptions(lookupList('sites')) },
+    { key: 'unitId', label: t('testing.fields.unit'), type: 'select', required: true, options: unitOptions() },
     { key: 'projectId', label: t('testing.fields.project'), type: 'select', options: projects.map((p) => ({ value: p.id, label: `${p.code} · ${name(p)}` })) },
     { key: 'score', label: t('testing.fields.score'), type: 'number', step: 1 },
     { key: 'resultEn', label: t('testing.fields.resultEn'), type: 'textarea', dir: 'ltr', max: 2000 },
     { key: 'resultAr', label: t('testing.fields.resultAr'), type: 'textarea', dir: 'rtl', max: 2000 },
   ];
   const values = test ? { code: test.code, statusCode: test.status, titleEn: test.titleEn, titleAr: test.titleAr, modelId: test.model && test.model.id,
-    departmentId: test.department && test.department.id, testType: test.testType, testDate: test.testDate, siteId: test.site && test.site.id,
+    departmentId: test.department && test.department.id, testType: test.testType, testDate: test.testDate, siteId: test.site && test.site.id, unitId: test.unit && test.unit.id,
     projectId: test.project && test.project.id, score: test.score, resultEn: test.resultEn, resultAr: test.resultAr }
     : { code: codes.test, statusCode: 'PLANNED', testType: 'INTERNAL' };
   formDialog({ title: test ? t('testing.editTitle', { code: test.code }) : t('testing.newTitle'), spec, values, withReason: Boolean(test),

@@ -137,6 +137,13 @@ PROJECT_TYPES = (
 DEPARTMENTS = (("G1", "Group 1", "مجموعة 1"), ("G2", "Group 2", "مجموعة 2"), ("G3", "Group 3", "مجموعة 3"),
                ("G4", "Group 4", "مجموعة 4"))
 
+# Units that conduct tests: code, English, Arabic, parent code (None = a directorate). Parents come first.
+ORG_UNITS = (
+    ("CAP-DEV-DIR", "Capability Development Directorate", "مديرية تطوير القدرات", None),
+    ("SEC-SYS", "Security Systems Section", "شعبة الأنظمة الأمنية", "CAP-DEV-DIR"),
+    ("CAP-DEV", "Capability Development Section", "شعبة تطوير القدرات", "CAP-DEV-DIR"),
+)
+
 CATEGORIES = (
     ("UAV", "Unmanned aerial vehicles", "المركبات الجوية غير المأهولة"),
     ("UGV", "Unmanned ground vehicles", "المركبات البرية غير المأهولة"),
@@ -219,6 +226,8 @@ SETTINGS = {
     "assets.replacement_age_years": 3.8,
     # Printed in every report header.
     "reports.classification": {"en": "Classification: to be set later", "ar": "التصنيف: يحدد لاحقاً"},
+    # Interface colours (Settings > Appearance): side bar, buttons, accent (gold) and page background, as #rrggbb.
+    "ui.theme": {"sidebar": "#142029", "primary": "#142029", "accent": "#b9995a", "background": "#f3f1ec"},
 }
 
 # AI technologies (Settings > AI capability levels edits them) and the level criteria L1-L5.

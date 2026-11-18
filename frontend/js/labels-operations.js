@@ -8,7 +8,7 @@ export default {
     byModel: 'Results by model', timeline: 'Test history', types: { INTERNAL: 'Internal', EXTERNAL: 'External' },
     fields: { code: 'Test ID', title: 'Test', titleEn: 'Test (English)', titleAr: 'Test (Arabic)', model: 'Model', asset: 'Asset',
       project: 'Project', type: 'Test type', date: 'Test date', score: 'Score', result: 'Result', resultEn: 'Result (English)',
-      resultAr: 'Result (Arabic)', site: 'Location' },
+      resultAr: 'Result (Arabic)', site: 'Location', unit: 'Conducting section' },
   },
   maintenance: {
     title: 'Maintenance and technical readiness', add: 'Maintenance order', newTitle: 'New maintenance order', editTitle: 'Edit {code}',

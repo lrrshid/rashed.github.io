@@ -44,6 +44,15 @@ def get_session():
     return jsonify(_session_body(user(), g.csrf_token))
 
 
+@bp.get("/appearance")
+@auth.public
+def appearance():
+    """The interface colours (Settings > Appearance). Public: the sign-in page uses them too. Nothing secret."""
+    from ...services import settings_service
+    Query(request.args, set())
+    return jsonify({"theme": settings_service.get("ui.theme")})
+
+
 @bp.get("/session/options")
 @auth.public
 def session_options():

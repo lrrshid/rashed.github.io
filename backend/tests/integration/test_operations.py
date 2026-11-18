@@ -71,3 +71,59 @@ def test_search_covers_tests_and_maintenance(admin):
     data = admin.json("/api/v1/search?q=TST-009")
     assert data["tests"] and data["tests"][0]["code"] == "TST-009"
     assert admin.json("/api/v1/search?q=MNT-001")["maintenance"]
+
+
+def _units(api) -> dict:
+    return {u["code"]: u for u in api.json("/api/v1/lookups")["units"]}
+
+
+def test_directorate_and_its_sections_are_reference_data(admin):
+    units = _units(admin)
+    directorate = units["CAP-DEV-DIR"]
+    assert directorate["parentId"] is None and directorate["nameAr"] == "مديرية تطوير القدرات"
+    assert {units["SEC-SYS"]["nameAr"], units["CAP-DEV"]["nameAr"]} == {"شعبة الأنظمة الأمنية", "شعبة تطوير القدرات"}
+    assert units["SEC-SYS"]["parentId"] == units["CAP-DEV"]["parentId"] == directorate["id"]
+
+
+def test_tests_filter_by_directorate_or_section(admin):
+    units = _units(admin)
+    every = admin.json("/api/v1/tests")
+    by_directorate = admin.json(f"/api/v1/tests?unit={units['CAP-DEV-DIR']['id']}")
+    assert by_directorate["kpis"]["total"] == every["kpis"]["total"] == 18   # the directorate = all its sections
+    security = admin.json(f"/api/v1/tests?unit={units['SEC-SYS']['id']}")
+    development = admin.json(f"/api/v1/tests?unit={units['CAP-DEV']['id']}")
+    assert {e["unit"]["code"] for e in security["items"]} == {"SEC-SYS"}
+    assert {e["unit"]["code"] for e in development["items"]} == {"CAP-DEV"}
+    assert security["kpis"]["total"] == len(security["items"]) == 8
+    assert development["kpis"]["total"] == len(development["items"]) == 10
+
+
+def test_a_test_records_its_conducting_section(admin):
+    units = _units(admin)
+    test = next(e for e in admin.json("/api/v1/tests")["items"] if e["code"] == "TST-002")
+    assert test["unit"]["code"] == "SEC-SYS"
+    res = admin.patch(f"/api/v1/tests/{test['id']}", json={"unitId": units["CAP-DEV"]["id"], "version": test["version"],
+                                                           "reason": "Moved to the development section"})
+    assert res.status_code == 200 and res.get_json()["unit"]["code"] == "CAP-DEV"
+    events = admin.json(f"/api/v1/history/TEST_EVENT/{test['id']}")["items"]
+    assert events[0]["reason"] == "Moved to the development section"
+    bad = admin.patch(f"/api/v1/tests/{test['id']}", json={"unitId": 999999, "version": res.get_json()["version"]})
+    assert bad.status_code == 400
+
+
+def test_units_have_two_levels_only(admin):
+    units = _units(admin)
+    # a new section under the directorate is fine
+    res = admin.post("/api/v1/admin/lists/units", json={"code": "C-UAS", "nameEn": "Counter-UAS Section",
+                                                        "nameAr": "شعبة مكافحة الطائرات", "parentId": units["CAP-DEV-DIR"]["id"]})
+    assert res.status_code == 201, res.get_json()
+    # a section cannot have sections of its own
+    deeper = admin.post("/api/v1/admin/lists/units", json={"code": "C-UAS-2", "nameEn": "Team", "nameAr": "فريق",
+                                                           "parentId": units["SEC-SYS"]["id"]})
+    assert deeper.status_code == 400
+    # a directorate with sections cannot move under another directorate
+    other = admin.post("/api/v1/admin/lists/units", json={"code": "OTHER-DIR", "nameEn": "Other Directorate",
+                                                          "nameAr": "مديرية أخرى"}).get_json()
+    move = admin.patch(f"/api/v1/admin/lists/units/{units['CAP-DEV-DIR']['id']}",
+                       json={"parentId": other["id"], "version": units["CAP-DEV-DIR"]["version"]})
+    assert move.status_code == 400

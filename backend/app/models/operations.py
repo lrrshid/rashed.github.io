@@ -28,6 +28,7 @@ class TestEvent(AuditedMixin, ArchivableMixin, Base):
     project_id: Mapped[int | None] = mapped_column(IdType, ForeignKey("project.id"))
     department_id: Mapped[int] = mapped_column(IdType, ForeignKey("department.id"), nullable=False)
     site_id: Mapped[int | None] = mapped_column(IdType, ForeignKey("site.id"))
+    unit_id: Mapped[int | None] = mapped_column(IdType, ForeignKey("org_unit.id"))  # the conducting section
     test_type: Mapped[str] = mapped_column(String(10), nullable=False)
     test_date: Mapped[date] = mapped_column(Date, nullable=False)
     status_code: Mapped[str] = mapped_column(String(30), nullable=False)

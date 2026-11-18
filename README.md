@@ -20,8 +20,7 @@ copy .env.example .env
 powershell -ExecutionPolicy Bypass -File scripts\run_dev.ps1
 ```
 
-Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`), or click **Try the demo**
-on the sign-in page (shown only when the mock accounts exist: demo profile, local machine, no LDAP). The first start creates
+Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`). The first start creates
 `data/cpc-demo.db` and seeds the fictional demo world (4 departments, 4 categories, 12 models, 66 assets,
 15 requirements, 14 projects, 140 milestones, risks, issues, 13 months of KPI history).
 
@@ -57,6 +56,25 @@ directory (LDAP) and the browsers. There is no e-mail, no CDN and no online serv
 | 7 Hardening | air-gapped: no e-mail anywhere (scheduled reports go to a folder and the report history), offline installation from `wheelhouse\\` (`scripts/build_wheelhouse.ps1`, verified with `pip --no-index`); done: frontend checks without a browser (`scripts/check_frontend.py`: every module compiles, imports resolve, all 521 label keys exist in EN and AR), Oracle script parity tests (every mapped table, column and sequence exists in `db/oracle`). Verified on a real Oracle Database 26ai Free (5 Nov 2026): all scripts apply, the app runs as the restricted runtime account with only the documented grants, and the Oracle suite (`tests/oracle`) passes. Visual pass of the phase 4-6 pages in Edge at 1440px, EN and AR (5 Nov 2026): no console errors; fixed narrow-column wrapping, the AI matrix headers, permission labels, the wrapping tab bar, and raw codes / ISO dates in Arabic reports, decision panels and alerts (`report_service.CODE_LABELS`, dd/mm/yyyy in panel and alert text). The system is **desktop web only**: no phone or tablet work. **Still open:** Playwright e2e tests, real PDF rendering beyond the browser print view | partly done |
 
 Pages of later phases already appear in the navigation with a placeholder.
+
+**Look and colours (11 Nov 2026).** The sign-in page and the home page banner show an animated capability scene
+(`frontend/js/components/scene.js`, `css/scene.css`: drones, radar, sea and ground vehicles, drawn as SVG, no video
+file, no external files; still when the viewer prefers reduced motion). Interface colours are a setting (`ui.theme`:
+side bar, buttons, accent, background) edited in Settings > Appearance (palettes + colour pickers, live preview);
+`GET /appearance` is public so the sign-in page uses them, and `js/lib/theme.js` derives the CSS variables.
+The scene follows the mouse (`followPointer`: depth layers, a gold light, the sign-in card tilts). The top bar has a
+light / dark mode button (also on the sign-in page; each browser keeps its choice, `cpc.mode`, applied before the first paint by
+`js/lang-boot.js`; dark surfaces are derived from the side-bar colour, printing is always light) and, for
+a colours button (top bar and sign-in page) with ready-made palettes for this device (`cpc.palette`, over the colours
+saved for everyone; saving in Settings > Appearance clears it on that device), which also leads administrators to
+Settings > Appearance.
+
+**Conducting units (11 Nov 2026).** Tests record the section that conducts them (`test_event.unit_id`). Units are a
+two-level list `org_unit` (a directorate, then its sections; Settings > «Directorates and sections»), seeded as
+«مديرية تطوير القدرات» with «شعبة الأنظمة الأمنية» and «شعبة تطوير القدرات» (`reference_data.ORG_UNITS`). The testing
+page filters by a directorate (all its sections) or one section (`GET /tests?unit=`), and the reports have «Tests by
+conducting section». Units do not limit access (department scope is unchanged). Scripts `db/sqlite/V005`,
+`db/oracle/V007`; on an existing Oracle schema run V007, the `org_unit` grant, then `seed-reference`.
 
 ### Where things are
 - `backend/app/services/metrics_service.py` — completion, gaps, heatmap, matrix (the formulas; see its docstring).

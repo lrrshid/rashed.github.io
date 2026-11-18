@@ -12,6 +12,7 @@ The app runs on SQLite (`APP_PROFILE=demo`) with the brochure-shaped demo data, 
 | `V002__testing_maintenance_ai.sql` | `V004__testing_maintenance_ai.sql` | tests, maintenance orders, AI technologies and levels, development opportunities |
 | `V003__documents_alerts.sql` | `V005__documents_alerts.sql` | versioned documents (append-only versions), alert rules and acknowledgements |
 | `V004__reports.sql` | `V006__reports.sql` | custom report templates, report schedules, report run log |
+| `V005__org_units.sql` | `V007__org_units.sql` | directorates and sections that conduct tests (`org_unit`), `test_event.unit_id` |
 
 Rule: a schema change is a **new numbered script in both folders** (never edit an applied script), plus its runtime
 grant in section 3 below.
@@ -34,6 +35,7 @@ SQL> @db/oracle/V003__audit_append_only.sql
 SQL> @db/oracle/V004__testing_maintenance_ai.sql
 SQL> @db/oracle/V005__documents_alerts.sql
 SQL> @db/oracle/V006__reports.sql
+SQL> @db/oracle/V007__org_units.sql
 ```
 
 Oracle has no `SCHEMA_VERSION` table: record which `V…` scripts were applied in the DBA's change log. At start-up
@@ -92,6 +94,8 @@ GRANT SELECT, INSERT ON alert_ack TO CPC_APP;
 GRANT SELECT, INSERT, UPDATE ON report_template TO CPC_APP;
 GRANT SELECT, INSERT, UPDATE ON report_schedule TO CPC_APP;
 GRANT SELECT, INSERT ON report_run TO CPC_APP;
+-- V007
+GRANT SELECT, INSERT, UPDATE ON org_unit TO CPC_APP;
 -- every sequence
 BEGIN
   FOR s IN (SELECT sequence_name FROM user_sequences) LOOP

@@ -5,8 +5,8 @@ from __future__ import annotations
 from flask import g, has_request_context
 from sqlalchemy import select
 
-from ..models import (AppRole, CapabilityCategory, CapabilityModel, Contract, Department, Organization, ProjectType,
-                      Site, SpecField, StatusDef, WorkflowStage)
+from ..models import (AppRole, CapabilityCategory, CapabilityModel, Contract, Department, Organization, OrgUnit,
+                      ProjectType, Site, SpecField, StatusDef, WorkflowStage)
 from ..schemas.dto import sid
 from . import context
 
@@ -73,6 +73,7 @@ def lookups() -> dict:
         "departments": [_entry(d) for d in _list(Department)],
         "categories": [_entry(c) for c in _list(CapabilityCategory)],
         "sites": [_entry(s) for s in _list(Site)],
+        "units": [_entry(u, parentId=sid(u.parent_id) if u.parent_id is not None else None) for u in _list(OrgUnit)],
         "organizations": [_entry(o, kind=o.kind, countryEn=o.country_en, countryAr=o.country_ar)
                           for o in _list(Organization)],
         "statuses": status_map,

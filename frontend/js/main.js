@@ -2,6 +2,7 @@
 import { api, setCsrfToken, setUnauthenticatedHandler } from './api.js';
 import { h, replace } from './lib/dom.js';
 import { applyDocumentLanguage } from './lib/i18n.js';
+import { applyTheme, effectiveTheme, rememberTheme } from './lib/theme.js';
 import { setTimeZone } from './lib/format.js';
 import { setLookups, setSession, setViewAs, state } from './lib/state.js';
 import { loadLanguage, t } from './labels.js';
@@ -37,7 +38,10 @@ export function registerRoute(path, loader, meta) { route(path, loader, meta); }
 
 async function boot() {
   applyDocumentLanguage();
-  await loadLanguage();
+  // Interface colours (Settings > Appearance), public so the sign-in page has them too; defaults if unreachable.
+  const [theme] = await Promise.all([api.get('/appearance').then((d) => d.theme, () => null), loadLanguage()]);
+  rememberTheme(theme);
+  applyTheme(effectiveTheme());   // this device's own palette, if one was chosen
   document.title = t('app.name');
   const app = document.getElementById('app');
   setUnauthenticatedHandler(() => window.location.assign('/'));

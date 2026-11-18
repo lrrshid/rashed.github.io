@@ -107,3 +107,14 @@ def test_role_permissions_are_editable_and_take_effect(admin, app):
     assert viewer.get("/api/v1/assets.csv").status_code == 200
     sys_role = roles["SYS_ADMIN"]
     assert admin.patch(f"/api/v1/admin/roles/{sys_role['id']}", json={"permissions": ["view"]}).status_code == 409
+
+
+def test_appearance_theme_is_public_and_admin_only_to_change(admin, capability, anon):
+    theme = anon.json("/api/v1/appearance")["theme"]
+    assert theme == {"sidebar": "#142029", "primary": "#142029", "accent": "#b9995a", "background": "#f3f1ec"}
+    green = {"sidebar": "#1f2b1d", "primary": "#2c3d29", "accent": "#b5a46a", "background": "#f1f0ea"}
+    assert capability.put("/api/v1/settings/ui.theme", json={"value": green, "version": 0}).status_code == 403
+    assert admin.put("/api/v1/settings/ui.theme", json={"value": {**green, "accent": "gold"}, "version": 0}).status_code == 400
+    res = admin.put("/api/v1/settings/ui.theme", json={"value": green, "version": 0, "reason": "Green theme"})
+    assert res.status_code == 200, res.get_json()
+    assert anon.json("/api/v1/appearance")["theme"] == green

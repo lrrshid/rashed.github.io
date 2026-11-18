@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from ..exceptions import Conflict, NotFound, ValidationFailed
 from ..models import (AiTechnology, AppRole, AppUser, CapabilityCategory, Contract, Department, Organization,
-                      ProjectType, RolePermission, Site, SpecField, StatusDef, WorkflowStage)
+                      OrgUnit, ProjectType, RolePermission, Site, SpecField, StatusDef, WorkflowStage)
 from ..models.lists import COLORS, SPEC_SECTIONS, SPEC_TYPES, STATUS_DOMAINS
 from ..schemas.dto import record_meta, sid
 from ..security.auth import PERMISSIONS, require_admin
@@ -26,6 +26,9 @@ LISTS = {
                                         "sortOrder": ("sort_order", _INT)}),
     "sites": (Site, {"code": ("code", "code"), "nameEn": ("name_en", _TEXT), "nameAr": ("name_ar", _TEXT),
                      "sortOrder": ("sort_order", _INT)}),
+    # Directorates (no parent) and their sections (parent = a directorate): the units that conduct tests.
+    "units": (OrgUnit, {"code": ("code", "code"), "nameEn": ("name_en", _TEXT), "nameAr": ("name_ar", _TEXT),
+                        "parentId": ("parent_id", "ref:OrgUnit"), "sortOrder": ("sort_order", _INT)}),
     "organizations": (Organization, {"code": ("code", "code"), "nameEn": ("name_en", _TEXT), "nameAr": ("name_ar", _TEXT),
                                      "kind": ("kind", ("MANUFACTURER", "SUPPLIER", "BOTH")),
                                      "countryEn": ("country_en", _TEXT), "countryAr": ("country_ar", _TEXT),
@@ -46,9 +49,11 @@ LISTS = {
                              "supplierId": ("supplier_id", "ref:Organization"), "contractValue": ("contract_value", "money"),
                              "startDate": ("start_date", "date"), "endDate": ("end_date", "date")}),
 }
-_REFS = {"ProjectType": ProjectType, "CapabilityCategory": CapabilityCategory, "Organization": Organization}
+_REFS = {"ProjectType": ProjectType, "CapabilityCategory": CapabilityCategory, "Organization": Organization,
+         "OrgUnit": OrgUnit}
 _REQUIRED = {"departments": ("code", "nameEn", "nameAr"), "categories": ("code", "nameEn", "nameAr"),
-             "sites": ("code", "nameEn", "nameAr"), "organizations": ("code", "nameEn", "nameAr", "kind"),
+             "sites": ("code", "nameEn", "nameAr"), "units": ("code", "nameEn", "nameAr"),
+             "organizations": ("code", "nameEn", "nameAr", "kind"),
              "statuses": ("domain", "code", "nameEn", "nameAr"), "projectTypes": ("code", "nameEn", "nameAr"),
              "stages": ("projectTypeId", "nameEn", "nameAr"), "specFields": ("categoryId", "section", "code", "nameEn", "nameAr", "dataType"),
              "aiTechnologies": ("code", "nameEn", "nameAr"), "contracts": ("code", "titleEn", "titleAr")}
@@ -165,6 +170,22 @@ def _check_unique(kind: str, model, values: dict, exclude_id: int | None = None)
         raise ValidationFailed.field("code", f"{values['code']} is already used.")
 
 
+def _check_unit_parent(unit: OrgUnit | None, parent_id: int | None) -> None:
+    """Two levels: a section's parent is a directorate (a unit without a parent), and a directorate that has sections
+    cannot itself become a section."""
+    if parent_id is None:
+        return
+    session = context.session()
+    parent = session.get(OrgUnit, parent_id)
+    if unit is not None and parent_id == unit.id:
+        raise ValidationFailed.field("parentId", "A unit cannot be its own directorate.")
+    if parent.parent_id is not None:
+        raise ValidationFailed.field("parentId", "Choose a directorate (a unit without a directorate of its own).")
+    if unit is not None and session.scalar(select(OrgUnit.id).where(OrgUnit.parent_id == unit.id).limit(1)) is not None:
+        raise ValidationFailed.field("parentId",
+                                     "This directorate has sections, so it cannot belong to another directorate.")
+
+
 def create_entry(actor, kind: str, payload: dict) -> dict:
     require_admin(actor)
     model, _ = _spec(kind)
@@ -176,6 +197,8 @@ def create_entry(actor, kind: str, payload: dict) -> dict:
             WorkflowStage.project_type_id == values["project_type_id"]))
         values["sort_order"] = (last or 0) + 1
     _check_unique(kind, model, values)
+    if kind == "units":
+        _check_unit_parent(None, values.get("parent_id"))
     entity = model(**values)
     crud.create(actor, entity, "admin", reason=payload.get("reason"))
     return _dto(kind, entity)
@@ -192,6 +215,8 @@ def update_entry(actor, kind: str, entry_id: int, payload: dict) -> dict:
     for fixed in ("domain", "category_id", "project_type_id"):
         if fixed in values and values[fixed] != getattr(entity, fixed):
             raise Conflict("This entry cannot move to another list.", code="CODE_FIXED")
+    if kind == "units" and "parent_id" in values:
+        _check_unit_parent(entity, values["parent_id"])
     if "code" in values:
         _check_unique(kind, model, {**{"domain": getattr(entity, "domain", None),
                                        "category_id": getattr(entity, "category_id", None)}, **values}, entity.id)

@@ -2,7 +2,8 @@
 import { t } from '../labels.js';
 
 const MAP = {
-  serial_number: 'fields.serial', model_id: 'fields.model', department_id: 'fields.department', site_id: 'fields.site',
+  serial_number: 'fields.serial', model_id: 'fields.model', department_id: 'fields.department', site_id: 'fields.site', unit_id: 'testing.fields.unit',
+  parent_id: 'settings.unitParent',
   status_code: 'fields.status', readiness_operational: 'fields.opReadiness', readiness_technical: 'fields.techReadiness',
   readiness_mission: 'fields.missionReadiness', readiness_maintenance: 'fields.maintReadiness',
   acquisition_date: 'fields.acquisitionDate', expected_delivery_date: 'fields.deliveryDate',

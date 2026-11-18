@@ -11,6 +11,8 @@ from app.models import Base
 
 DB = Path(__file__).resolve().parents[3] / "db"
 CREATE = re.compile(r"CREATE TABLE (\w+)\s*\((.*?)\n\);", re.S | re.I)
+# A column added by a later script: SQLite "ALTER TABLE t ADD COLUMN c ...", Oracle "ALTER TABLE t ADD (c ...)".
+ADD_COLUMN = re.compile(r"ALTER TABLE (\w+) ADD (?:COLUMN )?\(?(\w+) ", re.I)
 
 
 def _tables(folder: str) -> dict[str, set[str]]:
@@ -24,6 +26,9 @@ def _tables(folder: str) -> dict[str, set[str]]:
                     continue
                 cols.add(line.split()[0].lower())
             out[name.lower()] = cols
+        for name, column in ADD_COLUMN.findall(path.read_text(encoding="utf-8")):
+            if column.upper() != "CONSTRAINT":
+                out.setdefault(name.lower(), set()).add(column.lower())
     return out
 
 

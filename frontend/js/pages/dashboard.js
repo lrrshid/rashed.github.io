@@ -9,6 +9,7 @@ import { openDrill } from '../components/drilldown.js';
 import { barRows, card, dataTable, donut, errorBox, kpiTile, legend, loadingBox, ring } from '../components/ui.js';
 import { heatmapTable } from './gaps.js';
 import { navigate } from '../router.js';
+import { capabilityScene, followPointer } from '../components/scene.js';
 
 const COLOR_VARS = { green: '#12804a', amber: '#e3a92b', red: '#d24b3e', blue: '#2f6fd6', purple: '#6b52b8', teal: '#0f9488',
   grey: '#9aa3aa', orange: '#e0782b', pink: '#c94f8c', dark: '#41505c' };
@@ -23,13 +24,22 @@ export async function render(container, ctx) {
       d = await api.get('/dashboard', { department: state.department || undefined });
     } catch (error) { replace(container, errorBox(error, load)); return; }
     const scope = d.department ? name(d.department) : t('common.allDepartments');
-    const head = h('div', { class: 'page-head' },
+    const summaryButton = (cls) => h('a', { class: cls, href: '/reports?report=executive-summary' }, icon('file'), t('dashboard.summaryButton'));
+    // Home page: a banner with the animated capability scene, the emblem and the page title.
+    const head = !analytics ? h('section', { class: 'hero' }, capabilityScene('banner'),
+      h('div', { class: 'hero-content' },
+        h('div', { class: 'hero-brand' }, h('img', { class: 'hero-logo', src: '/assets/icons/ng-logo.png', alt: '' }),
+          h('div', {}, h('div', { class: 'hero-kicker', text: t('app.name') }),
+            h('h1', { tabindex: '-1', text: t('dashboard.title') }),
+            h('div', { class: 'hero-sub', text: t('dashboard.subtitle', { date: formatDate(d.asOf), scope }) }))),
+        h('div', { class: 'actions' }, h('a', { class: 'btn btn-hero', href: '/analytics', text: t('nav.analytics') }),
+          summaryButton('btn btn-hero')))) : h('div', { class: 'page-head' },
       h('div', {}, h('h1', { tabindex: '-1', text: analytics ? t('nav.analytics') : t('dashboard.title') }),
         h('div', { class: 'page-sub', text: t('dashboard.subtitle', { date: formatDate(d.asOf), scope }) })),
       h('div', { class: 'actions' },
-        h('a', { class: 'btn', href: analytics ? '/' : '/analytics', text: analytics ? t('dashboard.title') : t('nav.analytics') }),
-        h('a', { class: 'btn', href: '/reports?report=executive-summary' }, icon('file'), t('dashboard.summaryButton'))));
+        h('a', { class: 'btn', href: '/', text: t('dashboard.title') }), summaryButton('btn')));
     replace(container, head);
+    if (!analytics) followPointer(head);
 
     const tile = (key, k, extra = {}) => kpiTile({
       label: t(`dashboard.kpi.${key}`), value: formatCount(k.value), trend: k.trend, lowerIsBetter: k.lowerIsBetter,

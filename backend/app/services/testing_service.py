@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 from sqlalchemy import select
 
 from ..exceptions import ValidationFailed
-from ..models import Asset, CapabilityModel, Department, Project, Site, TestEvent
+from ..models import Asset, CapabilityModel, Department, OrgUnit, Project, Site, TestEvent
 from ..schemas.dto import record_meta, sid
 from ..security.auth import ALL_DEPARTMENTS, PERM_EDIT_TESTING, department_scope
 from . import context, crud, lookup_service as lk
@@ -31,8 +31,15 @@ def test_dto(e: TestEvent) -> dict:
             "project": {"id": sid(project.id), "code": project.code, "nameEn": project.name_en, "nameAr": project.name_ar}
             if project else None,
             "department": lk.ref_id(Department, e.department_id), "site": lk.ref_id(Site, e.site_id),
+            "unit": lk.ref_id(OrgUnit, e.unit_id),
             "testType": e.test_type, "testDate": e.test_date.isoformat(), "status": e.status_code, "score": e.score,
             "resultEn": e.result_en, "resultAr": e.result_ar, **record_meta(e)}
+
+
+def unit_and_sections(unit_ids: list[int]) -> list[int]:
+    """The units asked for plus their sections: filtering by a directorate lists the tests of all its sections."""
+    children = context.session().scalars(select(OrgUnit.id).where(OrgUnit.parent_id.in_(unit_ids)))
+    return sorted(set(unit_ids) | set(children))
 
 
 def list_tests(actor, f: dict) -> dict:
@@ -41,6 +48,8 @@ def list_tests(actor, f: dict) -> dict:
                         ("department", TestEvent.department_id), ("asset", TestEvent.asset_id)):
         if f.get(key):
             query = query.where(column.in_(f[key]))
+    if f.get("unit"):
+        query = query.where(TestEvent.unit_id.in_(unit_and_sections(f["unit"])))
     if f.get("status"):
         query = query.where(TestEvent.status_code.in_(f["status"]))
     if f.get("type"):
@@ -85,8 +94,8 @@ def project_test_health(project_ids: list[int] | None) -> dict:
     return out
 
 
-_FIELDS = ("title_en", "title_ar", "model_id", "asset_id", "project_id", "department_id", "site_id", "test_type",
-           "test_date", "status_code", "score", "result_en", "result_ar")
+_FIELDS = ("title_en", "title_ar", "model_id", "asset_id", "project_id", "department_id", "site_id", "unit_id",
+           "test_type", "test_date", "status_code", "score", "result_en", "result_ar")
 
 
 def _validate(values: dict, current: TestEvent | None = None) -> None:
@@ -104,6 +113,9 @@ def _validate(values: dict, current: TestEvent | None = None) -> None:
         crud.check_ref(Project, values["project_id"], "projectId", "Project", True)
     if values.get("site_id"):
         crud.check_ref(Site, values["site_id"], "siteId", "Site", True)
+    if values.get("unit_id"):
+        crud.check_ref(OrgUnit, values["unit_id"], "unitId", "Unit",
+                       current is not None and current.unit_id == values["unit_id"])
     if "status_code" in values:
         crud.check_status("TEST", values["status_code"], "status", current.status_code if current else None)
 

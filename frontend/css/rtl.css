@@ -14,3 +14,8 @@
 :root[dir="rtl"] .code, :root[dir="rtl"] .mono { direction: ltr; unicode-bidi: isolate; }
 
 :root[dir="rtl"] .date-field-input { padding-inline: 44px 10px; text-align: right; }
+
+/* Sign-in page (css/scene.css): the gold rule fades toward the reading end; the button shine runs right to left. */
+:root[dir="rtl"] .login-rule { background: linear-gradient(270deg, var(--gold), transparent); }
+:root[dir="rtl"] .login-submit::after { animation-name: login-shine-rtl; }
+@keyframes login-shine-rtl { 0%, 55% { transform: translateX(0); } 100% { transform: translateX(-450%); } }

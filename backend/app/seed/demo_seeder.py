@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 
 from ..models import (Asset, AssetStatusHistory, AppRole, AppUser, CapabilityCategory, CapabilityModel,
-                      CapabilityRequirement, Contract, Department, Issue, Milestone, Organization, Project,
+                      CapabilityRequirement, Contract, Department, Issue, Milestone, Organization, OrgUnit, Project,
                       ProjectHealthNote, ProjectModel, ProjectRequirement, ProjectType, RequirementModel, Risk,
                       RolePermission, Site, SpecField, StatusDef, WorkflowStage)
 from ..security.mock_credentials import MOCK_PASSWORD
@@ -74,6 +74,12 @@ def seed_reference(actor) -> dict:
         if missing(Department, code):
             _add(actor, Department(code=code, name_en=en, name_ar=ar, sort_order=order)); n += 1
     counts["departments"] = n
+    n = 0
+    for order, (code, en, ar, parent) in enumerate(ref.ORG_UNITS):
+        if missing(OrgUnit, code):
+            parent_id = session.scalar(select(OrgUnit.id).where(OrgUnit.code == parent)) if parent else None
+            _add(actor, OrgUnit(code=code, name_en=en, name_ar=ar, parent_id=parent_id, sort_order=order)); n += 1
+    counts["units"] = n
     n = 0
     for order, (code, en, ar) in enumerate(ref.CATEGORIES):
         if missing(CapabilityCategory, code):
@@ -329,9 +335,11 @@ def _seed_operations(admin, day, models: dict, projects: dict, dept: dict, sites
         for code in codes:
             session.add(ModelAiTech(model_id=models[model_code], technology_id=techs[code], created_at=context.now()))
     session.flush()
+    units = {u.code: u.id for u in session.scalars(select(OrgUnit))}
     for (code, en, ar, model, project, d, site, ttype, offset, status, score, r_en, r_ar) in ops.TESTS:
         _add(admin, TestEvent(code=code, title_en=en, title_ar=ar, model_id=models[model], project_id=projects.get(project),
-                              department_id=dept[d], site_id=sites.get(site), test_type=ttype, test_date=day(offset),
+                              department_id=dept[d], site_id=sites.get(site),
+                              unit_id=units.get(ops.TEST_UNITS.get(code)), test_type=ttype, test_date=day(offset),
                               status_code=status, score=score, result_en=r_en, result_ar=r_ar))
     assets = {a.code: a.id for a in session.scalars(select(Asset))}
     for (code, asset, mtype, en, ar, status, start, expected, actual, progress, cost, shortage, parts) in ops.MAINTENANCE:

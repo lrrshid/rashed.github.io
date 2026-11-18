@@ -85,12 +85,12 @@ function svg(tag, attrs = {}) {
 export function ring(current, forecast, label, onClick) {
   const r = 40; const c = 2 * Math.PI * r;
   const root = svg('svg', { viewBox: '0 0 100 100', role: 'img', 'aria-label': `${label}: ${formatPercent(current)} → ${formatPercent(forecast)}` });
-  root.append(svg('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: '#ece9e1', 'stroke-width': 10 }));
+  root.append(svg('circle', { cx: 50, cy: 50, r, fill: 'none', class: 'chart-track', 'stroke-width': 10 }));
   root.append(svg('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: '#8fd0b4', 'stroke-width': 10, 'stroke-dasharray': `${(forecast || 0) / 100 * c} ${c}`, transform: 'rotate(-90 50 50)' }));
   root.append(svg('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: '#2f6fd6', 'stroke-width': 10, 'stroke-dasharray': `${(current || 0) / 100 * c} ${c}`, transform: 'rotate(-90 50 50)', 'stroke-linecap': 'butt' }));
-  const text = svg('text', { x: 50, y: 52, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 700, fill: '#1c252d' });
+  const text = svg('text', { x: 50, y: 52, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 700, class: 'chart-value' });
   text.textContent = formatPercent(current);
-  const sub = svg('text', { x: 50, y: 67, 'text-anchor': 'middle', 'font-size': 9, fill: '#5b646b' });
+  const sub = svg('text', { x: 50, y: 67, 'text-anchor': 'middle', 'font-size': 9, class: 'chart-sub' });
   sub.textContent = `→ ${formatPercent(forecast)}`;
   root.append(text, sub);
   const el = h(onClick ? 'button' : 'div', { type: onClick ? 'button' : undefined, class: 'ring' }, root, h('span', { text: label }));
@@ -110,11 +110,11 @@ export function donut(segments, centerText, centerSub) {
     root.append(svg('circle', { cx: 50, cy: 50, r, fill: 'none', stroke: seg.color, 'stroke-width': 14, 'stroke-dasharray': `${len} ${c - len}`, 'stroke-dashoffset': -offset, transform: 'rotate(-90 50 50)' }));
     offset += len;
   }
-  const text = svg('text', { x: 50, y: 52, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1c252d' });
+  const text = svg('text', { x: 50, y: 52, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, class: 'chart-value' });
   text.textContent = centerText;
   root.append(text);
   if (centerSub) {
-    const sub = svg('text', { x: 50, y: 65, 'text-anchor': 'middle', 'font-size': 8, fill: '#5b646b' });
+    const sub = svg('text', { x: 50, y: 65, 'text-anchor': 'middle', 'font-size': 8, class: 'chart-sub' });
     sub.textContent = centerSub;
     root.append(sub);
   }

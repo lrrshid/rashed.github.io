@@ -22,9 +22,10 @@ register_history("DEVELOPMENT_OPPORTUNITY", DevelopmentOpportunity, "Development
 @bp.get("/tests")
 @permission_required(PERM_VIEW)
 def list_tests():
-    q = Query(request.args, {"model", "project", "department", "asset", "status", "type"})
+    q = Query(request.args, {"model", "project", "department", "unit", "asset", "status", "type"})
     return jsonify(testing_service.list_tests(user(), {
         "model": id_list(q, "model"), "project": id_list(q, "project"), "department": id_list(q, "department"),
+        "unit": id_list(q, "unit"),
         "asset": id_list(q, "asset"), "status": _codes(q, "status"), "type": q.choice("type", ("INTERNAL", "EXTERNAL"))}))
 
 

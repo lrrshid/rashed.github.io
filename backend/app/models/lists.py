@@ -32,6 +32,17 @@ class Site(NamedMixin, AuditedMixin, ArchivableMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
+class OrgUnit(NamedMixin, AuditedMixin, ArchivableMixin, Base):
+    """Organisational units that conduct tests: a directorate (no parent) and its sections (parent = the directorate).
+    Two levels only (admin_service checks it)."""
+    __tablename__ = "org_unit"
+
+    id: Mapped[int] = id_column("org_unit_seq")
+    code: Mapped[str] = code_column()
+    parent_id: Mapped[int | None] = mapped_column(IdType, ForeignKey("org_unit.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 ORG_KINDS = ("MANUFACTURER", "SUPPLIER", "BOTH")
 
 

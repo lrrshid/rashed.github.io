@@ -23,6 +23,7 @@ class _TestFields(ApiModel):
     asset_id: Id | None = None
     project_id: Id | None = None
     site_id: Id | None = None
+    unit_id: Id | None = None
     score: Percent = None
     result_en: optional_text(2000) = None
     result_ar: optional_text(2000) = None
