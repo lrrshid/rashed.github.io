@@ -2,7 +2,7 @@
 // the projects expected to close it. Every number opens its assets.
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit } from '../lib/state.js';
+import { canChange } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatDate, formatPercent } from '../lib/format.js';
 import { openDrill } from '../components/drilldown.js';
@@ -17,7 +17,7 @@ export async function render(container, ctx) {
     try { r = await api.get(`/requirements/${ctx.params.id}`); } catch (error) { replace(container, errorBox(error, load)); return; }
     const drill = (title, extra) => () => openDrill(`${r.code} · ${title}`, { ...r.drill, ...extra });
     const actions = h('div', { class: 'actions' });
-    if (canEdit('edit.requirements')) {
+    if (canChange('edit.requirements')) {
       actions.append(h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openRequirementForm(r, load) }, icon('edit'), t('common.edit')));
       actions.append(h('button', { type: 'button', class: 'btn', onclick: async () => {
         try { await api.post(`/requirements/${r.id}/archive`, { archived: !r.archived, version: r.version }); toast(t('common.saved')); load(); } catch (e) { toast(e.message, true); }

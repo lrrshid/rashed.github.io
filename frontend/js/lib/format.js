@@ -27,6 +27,13 @@ export function formatDateTime(iso) {
   return `${dmy(p)} ${p.dayPeriod ? `${p.hour}:${p.minute} ${p.dayPeriod}` : `${p.hour}:${p.minute}`}`;
 }
 
+// An instant to the second, 24-hour clock (user tracking: the exact moment of an action).
+export function formatDateTimeSeconds(iso) {
+  if (!iso) return t('common.none');
+  const p = partsOf('dts', { ...DATE_PARTS, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }, new Date(iso));
+  return `${dmy(p)} ${p.hour}:${p.minute}:${p.second}`;
+}
+
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
 // YYYY-MM-DD -> dd/mm/yyyy (no time zone involved).
 export function formatDate(value) {

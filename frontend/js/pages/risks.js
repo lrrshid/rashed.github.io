@@ -1,7 +1,7 @@
 // Risk register: probability × impact matrix, critical risks, overdue mitigations, by category.
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit, state } from '../lib/state.js';
+import { canChange, canEdit, state } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatDate } from '../lib/format.js';
 import { barRows, card, dataTable, errorBox, kpiTile, loadingBox, statusBadge } from '../components/ui.js';
@@ -39,6 +39,7 @@ export async function render(container, ctx) {
       [d, projects] = await Promise.all([api.get('/risks', { department: state.department || undefined }), api.get('/projects', { view: 'ACTIVE' })]);
     } catch (error) { replace(body, errorBox(error, load)); return; }
     const editable = canEdit('edit.risks');
+    const changeable = canChange('edit.risks');
     const context = { projects: projects.items };
     replace(head, h('div', {}, h('h1', { tabindex: '-1', text: t('risks.title') }), h('div', { class: 'page-sub', text: t('risks.subtitle') })),
       editable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openRiskForm(null, context, load) }, icon('plus'), t('risks.add')) : null);
@@ -59,7 +60,7 @@ export async function render(container, ctx) {
         card(t('risks.matrix'), riskMatrix(d.matrix, d.thresholds, (p, i) => { cell = { p, i }; level = null; load(); })),
         h('div', { class: 'span-2' }, card(t('risks.byCategory'), barRows(d.byCategory.map((c) => ({ label: t(`risks.categories.${c.category}`), parts: [{ value: c.count, color: 'var(--chart-1)', label: '' }] })))))),
       h('div', { class: 'section-label' }),
-      dataTable(riskColumns({ onEdit: editable ? (r) => openRiskForm(r, context, load) : null }), items));
+      dataTable(riskColumns({ onEdit: changeable ? (r) => openRiskForm(r, context, load) : null }), items));
   }
   await load();
 }

@@ -2,11 +2,13 @@
 // development potential (/development) and decision support (/decision).
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit, isAdmin, lookupList, state, statusDef, statuses } from '../lib/state.js';
+import { canChange, canEdit, isAdmin, lookupList, state, statusDef, statuses } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatDate, formatMoney, formatNumber, formatPercent } from '../lib/format.js';
 import { barRows, card, colorOf, dataTable, errorBox, kpiTile, legend, listOptions, loadingBox, meter, priorityBadge,
   refName, statusBadge } from '../components/ui.js';
+import { attachAll, canAttach, checkFiles, slotMark, slotRow } from '../components/attachments.js';
+import { openModal } from '../components/modal.js';
 import { diff, formDialog } from './forms.js';
 
 const statusOptions = (domain) => statuses(domain).filter((s) => !s.archived).map((s) => ({ value: s.code, label: name(s) }));
@@ -22,7 +24,7 @@ const editBtn = (onClick) => h('button', { type: 'button', class: 'btn btn-sm', 
 
 export async function render(container, ctx) {
   const page = window.location.pathname.slice(1);
-  const pages = { testing, maintenance, ai, development, decision };
+  const pages = { testing, maintenance, 'maintenance/capability': capabilityMaintenance, ai, development, decision };
   await pages[page](container, ctx);
 }
 
@@ -46,6 +48,7 @@ async function testing(container, ctx) {
     let d;
     try { d = await api.get('/tests', { department: state.department || undefined, unit: unit || undefined }); } catch (e) { replace(body, errorBox(e, load)); return; }
     const editable = canEdit('edit.testing');
+    const changeable = canChange('edit.testing');
     const k = d.kpis;
     replace(body,
       head(t('testing.title'), null, h('div', { class: 'actions' }, unitFilter(),
@@ -76,7 +79,7 @@ async function testing(container, ctx) {
         { key: 'project', label: t('testing.fields.project'), render: (e) => (e.project ? h('a', { href: `/projects/${e.project.id}`, class: 'mono', text: e.project.code }) : null) },
         { key: 'status', label: t('fields.status'), render: (e) => statusBadge('TEST', e.status) },
         { key: 'score', label: t('testing.fields.score'), num: true, render: (e) => (e.score === null ? null : String(e.score)) },
-        editable ? { key: 'edit', label: '', render: (e) => editBtn(() => testForm(e, load)) } : null,
+        changeable ? { key: 'edit', label: '', render: (e) => editBtn(() => testForm(e, load)) } : null,
       ].filter(Boolean), d.items));
   }
   await load();
@@ -100,13 +103,32 @@ async function testForm(test, onSaved) {
     { key: 'score', label: t('testing.fields.score'), type: 'number', step: 1 },
     { key: 'resultEn', label: t('testing.fields.resultEn'), type: 'textarea', dir: 'ltr', max: 2000 },
     { key: 'resultAr', label: t('testing.fields.resultAr'), type: 'textarea', dir: 'rtl', max: 2000 },
+    // Scans: the capability deed and the live demonstration report for the inspection (each a versioned document).
+    ...(canAttach() ? TEST_SLOTS.map((slot) => ({ key: TEST_FILE_KEYS[slot], label: t(`testing.slots.${slot}`), type: 'file',
+      current: test && test.attachments ? test.attachments[slot] : null })) : []),
   ];
   const values = test ? { code: test.code, statusCode: test.status, titleEn: test.titleEn, titleAr: test.titleAr, modelId: test.model && test.model.id,
     departmentId: test.department && test.department.id, testType: test.testType, testDate: test.testDate, siteId: test.site && test.site.id, unitId: test.unit && test.unit.id,
     projectId: test.project && test.project.id, score: test.score, resultEn: test.resultEn, resultAr: test.resultAr }
     : { code: codes.test, statusCode: 'PLANNED', testType: 'INTERNAL' };
   formDialog({ title: test ? t('testing.editTitle', { code: test.code }) : t('testing.newTitle'), spec, values, withReason: Boolean(test),
-    submit: (data) => (test ? api.patch(`/tests/${test.id}`, { ...diff(values, data), version: test.version }) : api.post('/tests', data)), onSaved });
+    submit: async (data) => {
+      const files = takeFiles(data, TEST_FILE_KEYS);
+      const saved = test ? await api.patch(`/tests/${test.id}`, { ...diff(values, data), version: test.version }) : await api.post('/tests', data);
+      await attachAll('TEST_EVENT', saved.id, files);
+      return saved;
+    }, onSaved });
+}
+
+const TEST_SLOTS = ['CAPABILITY_DEED', 'LIVE_DEMO_REPORT'];
+const TEST_FILE_KEYS = { CAPABILITY_DEED: 'fileDeed', LIVE_DEMO_REPORT: 'fileLiveDemo' };
+const MAINT_FILE_KEYS = { INVESTIGATION: 'fileInvestigation' };
+// The chosen files of a form, by slot (taken out of the record's own values; too large files refused first).
+function takeFiles(data, keys) {
+  const files = Object.fromEntries(Object.entries(keys).map(([slot, key]) => [slot, data[key]]));
+  for (const key of Object.values(keys)) delete data[key];
+  checkFiles(files);
+  return files;
 }
 
 // ---------------------------------------------------------------- maintenance
@@ -118,6 +140,7 @@ async function maintenance(container) {
     let d;
     try { d = await api.get('/maintenance', { department: state.department || undefined }); } catch (e) { replace(body, errorBox(e, load)); return; }
     const editable = canEdit('edit.maintenance');
+    const changeable = canChange('edit.maintenance');
     const k = d.kpis;
     const open = d.items.filter((m) => !['COMPLETED', 'CANCELLED'].includes(m.status));
     replace(body,
@@ -165,7 +188,7 @@ async function maintenance(container) {
         { key: 'prog', label: t('maintenance.fields.progress'), num: true, render: (m) => formatPercent(m.progressPct) },
         { key: 'parts', label: t('maintenance.fields.parts'), render: (m) => (m.partsShortage ? h('span', { class: 'badge c-red wrap', text: m.partsText || t('maintenance.fields.shortage') }) : null) },
         { key: 'cost', label: t('maintenance.fields.cost'), num: true, render: (m) => formatMoney(m.cost) },
-        editable ? { key: 'edit', label: '', render: (m) => editBtn(() => maintenanceForm(m, load)) } : null,
+        changeable ? { key: 'edit', label: '', render: (m) => editBtn(() => maintenanceForm(m, load)) } : null,
       ].filter(Boolean), d.items));
   }
   await load();
@@ -189,14 +212,113 @@ async function maintenanceForm(order, onSaved) {
     { key: 'partsShortage', label: t('maintenance.fields.shortage'), type: 'bool' },
     { key: 'partsText', label: t('maintenance.fields.parts'), max: 500 },
     { key: 'performedBy', label: t('maintenance.fields.by'), max: 160 },
+    { key: 'entryReasonAr', label: t('capMaint.fields.reasonAr'), type: 'textarea', dir: 'rtl', max: 2000 },
+    { key: 'entryReasonEn', label: t('capMaint.fields.reasonEn'), type: 'textarea', dir: 'ltr', max: 2000 },
+    canAttach() ? { key: 'fileInvestigation', label: t('capMaint.slots.INVESTIGATION'), type: 'file',
+      current: order && order.attachments ? order.attachments.INVESTIGATION : null } : null,
   ].filter(Boolean);
   const values = order ? { code: order.code, maintType: order.type, statusCode: order.status, titleEn: order.titleEn, titleAr: order.titleAr,
     startDate: order.startDate, expectedEndDate: order.expectedEndDate, actualEndDate: order.actualEndDate, progressPct: order.progressPct,
-    cost: order.cost, partsShortage: order.partsShortage, partsText: order.partsText, performedBy: order.performedBy }
+    cost: order.cost, partsShortage: order.partsShortage, partsText: order.partsText, performedBy: order.performedBy,
+    entryReasonEn: order.entryReasonEn, entryReasonAr: order.entryReasonAr }
     : { code: codes.maintenance, maintType: 'CORRECTIVE', statusCode: 'PLANNED', progressPct: 0, partsShortage: false };
   formDialog({ title: order ? t('maintenance.editTitle', { code: order.code }) : t('maintenance.newTitle'), spec, values, withReason: Boolean(order),
-    submit: (data) => (order ? api.patch(`/maintenance/${order.id}`, { ...diff(values, data), version: order.version })
-      : api.post('/maintenance', { ...data, partsShortage: Boolean(data.partsShortage) })), onSaved });
+    submit: async (data) => {
+      const files = takeFiles(data, MAINT_FILE_KEYS);
+      const saved = order ? await api.patch(`/maintenance/${order.id}`, { ...diff(values, data), version: order.version })
+        : await api.post('/maintenance', { ...data, partsShortage: Boolean(data.partsShortage) });
+      await attachAll('MAINTENANCE_ORDER', saved.id, files);
+      return saved;
+    }, onSaved });
+}
+
+// ---------------------------------------------------------------- capability maintenance
+// Maintenance > Capability maintenance: why each capability entered maintenance, and the investigation board's scan.
+async function capabilityMaintenance(container, ctx) {
+  const body = h('div');
+  container.append(body);
+  let scope = (ctx && ctx.query.show) || 'open';
+  async function load() {
+    replace(body, loadingBox());
+    let d;
+    try { d = await api.get('/maintenance', { department: state.department || undefined }); } catch (e) { replace(body, errorBox(e, load)); return; }
+    const changeable = canChange('edit.maintenance');  // the reason of an order that exists
+    const isOpen = (m) => !['COMPLETED', 'CANCELLED'].includes(m.status);
+    const rows = scope === 'all' ? d.items : d.items.filter(isOpen);
+    const show = h('select', { class: 'select', 'aria-label': t('capMaint.show') },
+      ['open', 'all'].map((v) => h('option', { value: v, text: t(`capMaint.showOptions.${v}`) })));
+    show.value = scope;
+    show.addEventListener('change', () => { scope = show.value; if (ctx) ctx.setQuery({ show: scope === 'open' ? undefined : scope }); load(); });
+    replace(body,
+      head(t('capMaint.title'), t('capMaint.subtitle'), h('div', { class: 'actions' }, show)),
+      h('div', { class: 'kpis' },
+        kpiTile({ label: t('capMaint.kpi.orders'), value: formatCount(rows.length) }),
+        kpiTile({ label: t('capMaint.kpi.withReason'), value: formatCount(rows.filter((m) => m.entryReasonAr || m.entryReasonEn).length), tone: 'green' }),
+        kpiTile({ label: t('capMaint.kpi.noReason'), value: formatCount(rows.filter((m) => !m.entryReasonAr && !m.entryReasonEn).length), tone: 'amber' }),
+        kpiTile({ label: t('capMaint.kpi.withInvestigation'), value: formatCount(rows.filter((m) => m.attachments && m.attachments.INVESTIGATION).length) })),
+      h('div', { class: 'section-label' }),
+      dataTable([
+        { key: 'code', label: t('maintenance.fields.code'), render: (m) => h('button', { type: 'button', class: 'btn btn-sm btn-ghost mono', text: m.code, onclick: () => showOrder(m, load) }) },
+        { key: 'asset', label: t('maintenance.fields.asset'), render: (m) => h('a', { href: `/assets/${m.asset.id}`, class: 'mono', text: m.asset.code }) },
+        { key: 'model', label: t('fields.model'), render: (m) => refName(m.model) },
+        { key: 'type', label: t('maintenance.fields.type'), render: (m) => t(`maintenance.types.${m.type}`) },
+        { key: 'status', label: t('fields.status'), render: (m) => statusBadge('MAINTENANCE', m.status) },
+        { key: 'start', label: t('capMaint.fields.entered'), render: (m) => formatDate(m.startDate) },
+        { key: 'reason', label: t('capMaint.fields.reason'), render: (m) => (m.entryReasonAr || m.entryReasonEn
+          ? h('div', { class: 'reason-text', text: name(m, 'entryReason') }) : h('span', { class: 'muted small', text: t('capMaint.noReason') })) },
+        { key: 'inv', label: t('capMaint.slots.INVESTIGATION'), render: (m) => slotMark(m.attachments && m.attachments.INVESTIGATION, t('capMaint.slots.INVESTIGATION')) },
+        { key: 'open', label: '', render: (m) => h('div', { class: 'row-actions' },
+          h('button', { type: 'button', class: 'btn btn-sm', onclick: () => showOrder(m, load) }, icon('file'), t('capMaint.details')),
+          changeable ? h('button', { type: 'button', class: 'btn btn-sm', 'aria-label': t('capMaint.editReason'), onclick: () => reasonForm(m, load) }, icon('edit')) : null) },
+      ], rows, { empty: t('capMaint.empty') }));
+  }
+  await load();
+}
+
+function showOrder(order, onChanged) {
+  const body = h('div');
+  const modal = openModal({ title: `${order.code} · ${order.asset.code} · ${refName(order.model)}`, body, size: 'lg' });
+  function draw(m) {
+    replace(body,
+      h('dl', { class: 'dl' },
+        h('div', {}, h('dt', { text: t('maintenance.fields.title') }), h('dd', { text: name(m, 'title') })),
+        h('div', {}, h('dt', { text: t('fields.status') }), h('dd', {}, statusBadge('MAINTENANCE', m.status))),
+        h('div', {}, h('dt', { text: t('capMaint.fields.entered') }), h('dd', { text: formatDate(m.startDate) }))),
+      card(t('capMaint.fields.reason'), m.entryReasonAr || m.entryReasonEn ? h('p', { class: 'reason-text', text: name(m, 'entryReason') })
+        : h('p', { class: 'muted', text: t('capMaint.noReason') }),
+      { actions: canChange('edit.maintenance') ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => { modal.close(true); reasonForm(m, onChanged); } }, icon('edit'), t('capMaint.editReason')) : null }),
+      card(t('capMaint.slots.INVESTIGATION'), h('div', { class: 'slots' }, slotRow({
+        entityType: 'MAINTENANCE_ORDER', entityId: m.id, docType: 'INVESTIGATION', label: t('capMaint.slots.INVESTIGATION'),
+        current: m.attachments && m.attachments.INVESTIGATION,
+        onChanged: async () => {
+          onChanged();
+          const d = await api.get('/maintenance', { asset: m.asset.id });
+          const fresh = d.items.find((x) => x.id === m.id);
+          if (fresh) draw(fresh);
+        },
+      }))));
+  }
+  draw(order);
+}
+
+function reasonForm(order, onSaved) {
+  const values = { entryReasonAr: order.entryReasonAr, entryReasonEn: order.entryReasonEn };
+  formDialog({
+    title: t('capMaint.reasonTitle', { code: order.code }), size: 'md', values, withReason: true,
+    spec: [
+      { key: 'entryReasonAr', label: t('capMaint.fields.reasonAr'), type: 'textarea', dir: 'rtl', max: 2000, span: true },
+      { key: 'entryReasonEn', label: t('capMaint.fields.reasonEn'), type: 'textarea', dir: 'ltr', max: 2000, span: true },
+      canAttach() ? { key: 'fileInvestigation', label: t('capMaint.slots.INVESTIGATION'), type: 'file', span: true,
+        current: order.attachments ? order.attachments.INVESTIGATION : null } : null,
+    ].filter(Boolean),
+    submit: async (data) => {
+      const files = takeFiles(data, MAINT_FILE_KEYS);
+      const saved = await api.patch(`/maintenance/${order.id}`, { ...diff(values, data), version: order.version });
+      await attachAll('MAINTENANCE_ORDER', saved.id, files);
+      return saved;
+    },
+    onSaved,
+  });
 }
 
 // ---------------------------------------------------------------- AI
@@ -239,7 +361,7 @@ async function ai(container) {
 
 export async function modelAiPanel(model, onChanged) {
   const d = await api.get(`/models/${model.id}/ai`);
-  const editable = canEdit('edit.models');
+  const editable = canChange('edit.models');  // the model exists: its AI functions are a change
   const levelBox = h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', { text: t('ai.levelOf', { n: d.level }) })),
     h('h3', { text: t('ai.trace') }),
     dataTable([
@@ -284,6 +406,7 @@ async function development(container) {
     let d;
     try { d = await api.get('/development'); } catch (e) { replace(body, errorBox(e, load)); return; }
     const editable = canEdit('edit.models');
+    const changeable = canChange('edit.models');
     const total = d.items.length;
     replace(body,
       head(t('development.title'), null, editable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => developmentForm(null, load) }, icon('plus'), t('development.add')) : null),
@@ -291,7 +414,7 @@ async function development(container) {
         card(t('development.byStatus'), barRows(d.byStatus.map((s) => { const def = statusDef('DEVELOPMENT', s.status); return { label: def ? name(def) : s.status, parts: [{ value: s.count, color: colorOf(def && def.color), label: '' }] }; }), total)),
         card(t('development.byType'), barRows(d.byType.map((s) => ({ label: t(`development.types.${s.type}`), parts: [{ value: s.count, color: 'var(--chart-1)', label: '' }] })), total))),
       h('div', { class: 'section-label' }),
-      developmentTable(d.items, editable ? (o) => developmentForm(o, load) : null));
+      developmentTable(d.items, changeable ? (o) => developmentForm(o, load) : null));
   }
   await load();
 }

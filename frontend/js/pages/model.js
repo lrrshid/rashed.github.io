@@ -2,7 +2,7 @@
 // category, administrators can add custom ones), linked requirements and projects, and its audit trail.
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit, lookupList, statuses } from '../lib/state.js';
+import { canChange, lookupList, statuses } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatMoney, formatNumber } from '../lib/format.js';
 import { assetColumns } from '../components/drilldown.js';
@@ -19,7 +19,7 @@ export async function render(container, ctx) {
     try { model = await api.get(`/models/${ctx.params.id}`); } catch (error) { replace(container, errorBox(error, load)); return; }
     const counts = model.assetCounts.byStatus;
     const actions = h('div', { class: 'actions' });
-    if (canEdit('edit.models')) {
+    if (canChange('edit.models')) {
       actions.append(h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openModelForm(model, load) }, icon('edit'), t('common.edit')));
       actions.append(h('button', { type: 'button', class: 'btn', onclick: async () => {
         try { await api.post(`/models/${model.id}/archive`, { archived: !model.archived, version: model.version }); toast(t('common.saved')); load(); } catch (e) { toast(e.message, true); }
@@ -51,7 +51,7 @@ export async function render(container, ctx) {
       for (const f of fields) (sections[f.section] = sections[f.section] || []).push(f);
       const grid = h('div', { class: 'grid grid-2' }, Object.entries(sections).map(([section, list]) => card(t(`model.sections.${section}`),
         dl(list.map((f) => [`${name(f)}${f.unit ? ` (${f.unit})` : ''}`, specValue(model.specs[f.code], f)])))));
-      body.append(canEdit('edit.models') ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn', onclick: () => openSpecsForm(model, load) }, icon('edit'), t('model.specsEdit'))) : null, grid);
+      body.append(canChange('edit.models') ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn', onclick: () => openSpecsForm(model, load) }, icon('edit'), t('model.specsEdit'))) : null, grid);
     } else if (tab === 'ai') {
       const { modelAiPanel } = await import('./operations.js');
       body.append(await modelAiPanel(model, load));

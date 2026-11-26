@@ -159,9 +159,11 @@ def _user(app, username) -> AppUser | None:
 
 
 def _audit_rows(app, user_id) -> list[AuditEvent]:
+    """Changes to the user record (sign-ins and sign-outs, also audited for the user board, are left out)."""
     with app.app_context():
         return list(db.session().scalars(select(AuditEvent).where(
-            AuditEvent.entity_type == "APP_USER", AuditEvent.entity_id == user_id).order_by(AuditEvent.id)))
+            AuditEvent.entity_type == "APP_USER", AuditEvent.entity_id == user_id,
+            AuditEvent.action.not_in(("SIGN_IN", "SIGN_OUT"))).order_by(AuditEvent.id)))
 
 
 def _set_break_glass(app, password=BG_PASSWORD):
@@ -325,7 +327,8 @@ def test_the_name_change_shows_in_the_audit_list(ldap_app, fake_dir, jane):
     fake_dir.set_display_name(f"CN=Ali Hassan,OU=Engineers,{BASE}", "Ali H. Al Marri")
     assert _sign_in(ldap_app, *ALI).status_code == 200
     events = _ok(jane, "get", f"{API}/audit?entityType=APP_USER&entityId={ali.id}")["items"]
-    latest = events[0]
+    assert events[0]["action"] == "SIGN_IN"  # the sign-in itself is recorded too (the user board)
+    latest = next(e for e in events if e["action"] not in ("SIGN_IN", "SIGN_OUT"))
     assert latest["action"] == "UPDATE" and latest["actor"]["id"] == str(ali.id)
     assert latest["reason"] == "Name updated from the company directory at sign-in"
     assert {"field": "display_name", "from": "Ali Hassan", "to": "Ali H. Al Marri"} in latest["changes"]
@@ -841,13 +844,14 @@ def test_an_empty_database_gets_only_the_roles_in_directory_mode(empty_template,
     """No demo data and no accounts at all: in particular no shared-password mock accounts."""
     from app.models import AppRole
     from app.seed.demo_seeder import seed_if_empty
+    from app.seed.reference_data import ROLES
 
     application = _ldap_app(empty_template, tmp_path, fake_dir)
     try:
         with application.app_context():
-            assert seed_if_empty() == {"roles": 9}
+            assert seed_if_empty() == {"roles": len(ROLES)}
         assert _count(application, AppUser) == 0
-        assert _count(application, AppRole) == 9
+        assert _count(application, AppRole) == len(ROLES)
         _login_failed(_sign_in(application, "mock.admin", MOCK_PASSWORD))
         assert fake_dir.untouched
     finally:

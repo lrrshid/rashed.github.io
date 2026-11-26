@@ -2,7 +2,7 @@
 // milestones with Gantt, risks, issues, linked capabilities and the audit trail.
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit, lookupList } from '../lib/state.js';
+import { canChange, canEdit, lookupList } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatDate, formatDateTime, formatMoney, formatPercent } from '../lib/format.js';
 import { card, dataTable, dl, errorBox, historyList, loadingBox, meter, priorityBadge, ragDot, refName, statusBadge, tabs, toast } from '../components/ui.js';
@@ -20,7 +20,8 @@ export async function render(container, ctx) {
     replace(container, loadingBox());
     let p;
     try { p = await api.get(`/projects/${ctx.params.id}`); } catch (error) { replace(container, errorBox(error, load)); return; }
-    const editable = canEdit('edit.projects');
+    const editable = canEdit('edit.projects');  // add milestones
+    const changeable = canChange('edit.projects');  // change, archive, judge the project
     const reload = () => load();
     const header = h('div', { class: 'card' },
       h('div', { class: 'page-head', style: 'margin:0' },
@@ -30,8 +31,8 @@ export async function render(container, ctx) {
           h('div', { class: 'page-sub', text: `${refName(p.type)} · ${refName(p.department)} · ${p.category ? p.category.code : ''} · ${t('projects.fields.manager')}: ${p.managerName || t('common.none')}` }),
           h('div', { class: 'actions' }, statusBadge('PROJECT', p.status), ragDot(p.health))),
         h('div', { class: 'actions' },
-          editable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openProjectForm(p, reload) }, icon('edit'), t('common.edit')) : null,
-          editable ? h('button', { type: 'button', class: 'btn', onclick: async () => {
+          changeable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openProjectForm(p, reload) }, icon('edit'), t('common.edit')) : null,
+          changeable ? h('button', { type: 'button', class: 'btn', onclick: async () => {
             try { await api.post(`/projects/${p.id}/archive`, { archived: !p.archived, version: p.version }); toast(t('common.saved')); load(); } catch (e) { toast(e.message, true); }
           } }, icon(p.archived ? 'restore' : 'archive'), p.archived ? t('common.restore') : t('common.archive')) : null)),
       h('div', { class: 'section-label' }),
@@ -60,7 +61,7 @@ export async function render(container, ctx) {
           return h('div', { class: 'card', style: `border-inline-start:4px solid var(--${ind.rag === 'GREEN' ? 'green' : ind.rag === 'AMBER' ? 'amber' : ind.rag === 'RED' ? 'red' : 'grey'})` },
             h('div', { class: 'card-head' }, h('h3', { text: t(`projects.health.dims.${dim}`) }), ragDot(ind.rag)),
             h('p', { class: 'small', text: `${t('projects.health.reason')}: ${name(ind, 'reason')}` }),
-            manual && editable ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openHealthNoteForm(p, dim, reload) }, icon('edit'), t('common.edit')) : null);
+            manual && changeable ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => openHealthNoteForm(p, dim, reload) }, icon('edit'), t('common.edit')) : null);
         })),
         h('p', { class: 'small muted', style: 'margin-top:8px', text: t('projects.health.basis') })), { actions: h('span', {}, `${t('projects.health.overall')}: `, ragDot(p.health)) }));
       body.append(card(t('projects.workflow'), h('div', { class: 'actions' }, p.workflow.map((s) =>
@@ -80,15 +81,15 @@ export async function render(container, ctx) {
             h('li', { class: i.severity === 'CRITICAL' || i.severity === 'HIGH' ? '' : 'amber' }, h('span', { class: 'mono', text: `${i.code} ` }), name(i, 'title'))))))));
     } else if (tab === 'milestones') {
       body.append(editable ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openMilestoneForm(null, context, reload) }, icon('plus'), t('milestones.add'))) : null,
-        dataTable(milestoneColumns({ withProject: false, onEdit: editable ? (m) => openMilestoneForm(m, context, reload) : null }), p.milestones));
+        dataTable(milestoneColumns({ withProject: false, onEdit: changeable ? (m) => openMilestoneForm(m, context, reload) : null }), p.milestones));
     } else if (tab === 'gantt') {
       body.append(projectGantt(p));
     } else if (tab === 'risks') {
       body.append(canEdit('edit.risks') ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openRiskForm(null, context, reload) }, icon('plus'), t('risks.add'))) : null,
-        dataTable(riskColumns({ withProject: false, onEdit: canEdit('edit.risks') ? (r) => openRiskForm(r, context, reload) : null }), p.risks));
+        dataTable(riskColumns({ withProject: false, onEdit: canChange('edit.risks') ? (r) => openRiskForm(r, context, reload) : null }), p.risks));
     } else if (tab === 'issues') {
       body.append(canEdit('edit.risks') ? h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openIssueForm(null, context, reload) }, icon('plus'), t('issues.add'))) : null,
-        dataTable(issueColumns({ withProject: false, onEdit: canEdit('edit.risks') ? (i) => openIssueForm(i, context, reload) : null }), p.issues));
+        dataTable(issueColumns({ withProject: false, onEdit: canChange('edit.risks') ? (i) => openIssueForm(i, context, reload) : null }), p.issues));
     } else if (tab === 'capabilities') {
       body.append(h('div', { class: 'grid grid-2' },
         card(t('projects.fields.requirements'), dataTable([

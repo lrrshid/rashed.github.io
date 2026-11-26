@@ -96,6 +96,29 @@ def upload_version(document_id: int):
     return created(result, f"/api/v1/documents/{document_id}")
 
 
+@bp.post("/attachments")
+def attach_scan():
+    """multipart/form-data: entityType, entityId, docType, file, note. A scan in a record's slot (document_service.SLOTS):
+    the slot's document is made with the first scan; each later scan is its next version."""
+    request.max_content_length = UPLOAD_LIMIT
+    if request.content_length is not None and request.content_length > UPLOAD_LIMIT:
+        raise PayloadTooLarge("Files are limited to 20 MB.")
+    entity_type = (request.form.get("entityType") or "").strip().upper()
+    doc_type = (request.form.get("docType") or "").strip().upper()
+    raw_id = (request.form.get("entityId") or "").strip()
+    if entity_type not in document_service.SLOTS:
+        raise ValidationFailed.field("entityType", "Scans cannot be attached to that kind of record.")
+    if not raw_id.isdigit() or not 1 <= int(raw_id) <= 9223372036854775807:
+        raise ValidationFailed.field("entityId", "Must be a record id.")
+    upload = request.files.get("file")
+    if upload is None:
+        raise ValidationFailed.field("file", "Choose a file.")
+    data = upload.read(document_service.MAX_BYTES + 1)
+    note = (request.form.get("note") or "").strip() or None
+    result = document_service.attach(user(), entity_type, int(raw_id), doc_type, upload.filename or "file", data, note)
+    return created(result, f"/api/v1/documents/{result['id']}")
+
+
 @bp.get("/documents/<int:document_id>/file")
 @permission_required(PERM_VIEW)
 def download_document(document_id: int):

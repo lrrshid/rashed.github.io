@@ -1,7 +1,7 @@
 """Company directory (LDAP / Microsoft Active Directory) for sign-in when AUTH_MODE=ldap.
 
 The directory only answers "is this the right password for this Windows username?" and gives the display name.
-Who may use the dashboard, with which role and stations, stays in the app (active APP_USER rows an ADMIN added).
+Who may use the app, with which role and groups, stays in the app (active APP_USER rows a system administrator added).
 
 How a sign-in is checked (authenticate):
   1. Refuse an empty password before anything is sent: many directories treat a simple bind with an empty
@@ -20,7 +20,8 @@ Several servers in LDAP_SERVER are tried in order. One that fails is skipped for
 tried again after the others), so while dc01 is down a sign-in does not wait LDAP_TIMEOUT_SECONDS for it twice
 (service connection, then the user's) on every attempt.
 
-Every connection is encrypted (LDAPS, or STARTTLS before the password is sent), the server certificate must be
+A connection is encrypted (LDAPS, or STARTTLS before the password is sent) unless Settings was told, explicitly, to
+use plain LDAP (ldap_security "ldap"; never from ldap.env, never as a fallback). When encrypted, the server certificate must be
 signed by the company CA in LDAP_CA_FILE, and its name must match LDAP_SERVER. Passwords are never logged.
 
 Tests replace the network part through app.config["DIRECTORY_CONNECTION_FACTORY"]: a callable (user, password) ->
@@ -35,8 +36,8 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
-from flask import current_app
-from ldap3 import AUTO_BIND_NONE, BASE, NONE, SIMPLE, SUBTREE, Connection, Server, Tls
+from flask import current_app, has_app_context
+from ldap3 import AUTO_BIND_NONE, BASE, LEVEL, NONE, SIMPLE, SUBTREE, Connection, Server, Tls
 from ldap3.core.exceptions import LDAPException, LDAPPasswordIsMandatoryError, LDAPSASLPrepError
 from ldap3.protocol.sasl.sasl import validate_simple_password
 from ldap3.utils.conv import escape_filter_chars
@@ -153,6 +154,17 @@ class Directory:
 
     # ---- connections ----------------------------------------------------------------------------------------------
 
+    def check_destination(self, host: str) -> None:
+        """When Settings manages the directory (settings.egress_rules is set), `host` on the port must be an approved
+        LDAP destination (services/connections/egress.py); raises EgressDenied. ldap.env's legacy path is not checked."""
+        rules = self.settings.egress_rules
+        if rules is None:
+            return
+        from ..services.connections import egress  # the services import this module
+
+        resolver = current_app.config.get("EGRESS_RESOLVER") if has_app_context() else None
+        egress.check(host, self.settings.ldap_port, "LDAP", rules, resolver)
+
     def _server(self, host: str) -> Server:
         s = self.settings
         tls = Tls(validate=ssl.CERT_REQUIRED, ca_certs_data=s.ldap_ca_data, sni=host)  # hostname checked by ldap3
@@ -162,6 +174,7 @@ class Directory:
     def _open(self, host: str, user: str, password: str) -> Connection:
         """An open, encrypted connection to one server, not yet signed in."""
         s = self.settings
+        self._guard(host)
         conn = Connection(self._server(host), user=user, password=password, authentication=SIMPLE,
                           auto_bind=AUTO_BIND_NONE, receive_timeout=s.ldap_timeout_seconds, read_only=True,
                           raise_exceptions=False, auto_referrals=False)
@@ -174,6 +187,15 @@ class Directory:
         except BaseException:
             _close(conn)
             raise
+
+    def _guard(self, host: str) -> None:
+        from ..services.connections.egress import EgressDenied
+
+        try:
+            self.check_destination(host)
+        except EgressDenied as exc:
+            raise DirectoryUnavailable(f"{host}: {exc.message}", "Approve the server under Settings > Network and "
+                                                                 "certificates.") from None
 
     def _server_order(self) -> list[str]:
         """LDAP_SERVER in order, with the servers that failed in the last SERVER_RETRY_SECONDS moved to the end."""
@@ -196,6 +218,8 @@ class Directory:
         """A connection to the first server in LDAP_SERVER that answers (the others are the fallback; one that just
         failed is tried last, see SERVER_RETRY_SECONDS)."""
         if self._factory is not None:
+            if self.settings.ldap_servers:
+                self._guard(self.settings.ldap_servers[0])  # tests: the destination policy applies here too
             try:
                 return self._factory(user, password)
             except DirectoryUnavailable:
@@ -247,9 +271,12 @@ class Directory:
     def _find(self, conn: Connection, username: str) -> DirectoryUser | None:
         s = self.settings
         attr, display_attr = s.ldap_username_attribute, s.ldap_display_name_attribute
-        search_filter = f"(&(objectClass=user)({attr}={escape_filter_chars(username)}))"
+        # Both values are escaped: neither the username nor the object class can change the search.
+        search_filter = (f"(&(objectClass={escape_filter_chars(s.ldap_user_object_class)})"
+                         f"({attr}={escape_filter_chars(username)}))")
+        scope = LEVEL if s.ldap_search_scope == "level" else SUBTREE
         try:
-            conn.search(s.ldap_base_dn, search_filter, search_scope=SUBTREE, attributes=[attr, display_attr],
+            conn.search(s.ldap_base_dn, search_filter, search_scope=scope, attributes=[attr, display_attr],
                         size_limit=2, time_limit=s.ldap_timeout_seconds)
         except (LDAPException, OSError) as exc:
             raise DirectoryUnavailable(f"search failed: {type(exc).__name__}: {exc}", explain(exc)) from None
@@ -368,4 +395,6 @@ class Directory:
 
 def get_directory() -> Directory:
     """The directory for the current app (tests may set app.config["DIRECTORY_CONNECTION_FACTORY"])."""
-    return Directory(current_app.config["SETTINGS"], current_app.config.get("DIRECTORY_CONNECTION_FACTORY"))
+    from ..services.connections.config_service import effective  # the services import this module
+
+    return Directory(effective(), current_app.config.get("DIRECTORY_CONNECTION_FACTORY"))

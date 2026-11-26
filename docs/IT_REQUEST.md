@@ -30,8 +30,9 @@ For the DNS name above: `server.crt` (the certificate **followed by the intermed
 
 ## 4. Oracle (DBA)
 
-- A schema-owner account (e.g. `CPC_OWNER`) to run the scripts `V001`…`V007` (in the bundle under `oracle-scripts/`).
-- A separate runtime account (e.g. `CPC_APP`) with only the grants in `docs/oracle-migration.md` section 3.
+- A schema-owner account (e.g. `CPC_OWNER`) to run the scripts `V001`…`V011` (in the bundle under `oracle-scripts/`).
+- A separate runtime account (e.g. `CPC_APP`) with only the grants of `oracle-scripts/runtime-grants.sql`.
+- An **empty** schema: no data is copied in (the demo data never goes to Oracle).
 - The connection string `host:port/service`, and the runtime password (handed over securely, not by e-mail).
 - Connections: the app keeps up to `ORACLE_POOL_MAX` (8 by default) open, plus a few for the daily jobs.
 - Wallet or TCPS details, only if required.

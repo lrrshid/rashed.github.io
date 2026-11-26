@@ -62,8 +62,14 @@ Native "docker build"
 Step "3. Test start on http://127.0.0.1:$SmokePort"
 $smoke = "cpc-smoke-$PID"
 cmd /c "docker rm -f $smoke >nul 2>&1"   # 2>$null on a native command throws in PowerShell 5.1
+# A throwaway SETTINGS_KEY, as install.sh writes one into app.env on the VM: the read-only container cannot create
+# the key file the local demo uses (data/settings.key), and /app/data is not mounted in this test.
+$keyBytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($keyBytes)
+$smokeKey = [Convert]::ToBase64String($keyBytes)
 docker run -d --name $smoke --platform $Platform -p "127.0.0.1:${SmokePort}:8080" --read-only --tmpfs /tmp --cap-drop ALL `
-    -e APP_PROFILE=demo -e APP_ENV=production -e DEMO_DB_PATH=/tmp/smoke.db -e SESSION_COOKIE_SECURE=false $image | Out-Null
+    -e APP_PROFILE=demo -e APP_ENV=production -e DEMO_DB_PATH=/tmp/smoke.db -e SESSION_COOKIE_SECURE=false `
+    -e "SETTINGS_KEY=$smokeKey" $image | Out-Null
 Native "docker run"
 try {
     $base = "http://127.0.0.1:$SmokePort"
@@ -97,22 +103,25 @@ if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory -Force $stage | Out-Null
 
 # deployment\ minus anything made on a VM (settings, data, certificates, backups)
-$skip = '^(app\.env|ldap\.env|\.env|data|backups)$'
+$skip = '^(app\.env|ldap\.env|\.env|install\.conf|data|backups)$'
 Get-ChildItem (Join-Path $root "deployment") -Force | Where-Object { $_.Name -notmatch $skip } |
     ForEach-Object { Copy-Item $_.FullName -Destination $stage -Recurse -Force }
-Get-ChildItem (Join-Path $stage "nginx\certs"), (Join-Path $stage "ldap") -File -Force |
+Get-ChildItem (Join-Path $stage "certs"), (Join-Path $stage "ldap") -File -Force |
     Where-Object { $_.Name -ne "README.md" } | Remove-Item -Force
 Copy-Item (Join-Path $root "ldap.env.example") $stage
 New-Item -ItemType Directory -Force (Join-Path $stage "oracle-scripts"), (Join-Path $stage "docs"), (Join-Path $stage "images") | Out-Null
 Copy-Item (Join-Path $root "db\oracle\V*.sql") (Join-Path $stage "oracle-scripts")
-foreach ($doc in "docs\oracle-migration.md", "docs\IT_REQUEST.md", "docs\LDAP_IT_MANUAL.md", "docs\LDAP_SETUP.txt") {
+Copy-Item (Join-Path $root "db\oracle\runtime-grants.sql") (Join-Path $stage "oracle-scripts")
+foreach ($doc in "docs\oracle-migration.md", "docs\SETTINGS.md", "docs\IT_REQUEST.md", "docs\LDAP_IT_MANUAL.md", "docs\LDAP_SETUP.txt") {
     Copy-Item (Join-Path $root $doc) (Join-Path $stage "docs")
 }
 
 # Text files: UTF-8 without BOM, LF line endings (bash and sha256sum on the VM).
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText((Join-Path $stage "VERSION"), "$version`n", $utf8)
-Get-ChildItem $stage -Recurse -File | Where-Object { $_.Extension -in ".sh", ".yml", ".conf", ".md", ".example", ".sql", ".txt" } |
+# install.sh refuses a kit built for another CPU type than the VM's.
+[System.IO.File]::WriteAllText((Join-Path $stage "IMAGE_PLATFORM"), "$Platform`n", $utf8)
+Get-ChildItem $stage -Recurse -File | Where-Object { $_.Extension -in ".sh", ".yml", ".conf", ".md", ".example", ".sql", ".txt", ".template" } |
     ForEach-Object {
         $text = [System.IO.File]::ReadAllText($_.FullName).Replace("`r`n", "`n")
         [System.IO.File]::WriteAllText($_.FullName, $text, $utf8)
@@ -138,12 +147,15 @@ $lines = Get-ChildItem $stage -Recurse -File | Sort-Object FullName | ForEach-Ob
 Step "6. dist\$name.tar.gz"
 $archive = Join-Path $dist "$name.tar.gz"
 if (Test-Path $archive) { Remove-Item -Force $archive }
-& "$env:SystemRoot\System32\tar.exe" -czf $archive -C $dist $name
-Native "tar"
+# Python's tarfile (predeployment\pack.py), not Windows tar: the archive carries Linux permissions (install.sh and
+# scripts\*.sh executable), so ./install.sh runs straight after tar -xzf on the VM.
+& (Join-Path $root ".venv\Scripts\python.exe") (Join-Path $root "predeployment\pack.py") $stage $archive
+Native "pack"
 $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
 $mb = [math]::Round((Get-Item $archive).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Bundle:  $archive  ($mb MB)" -ForegroundColor Green
 Write-Host "SHA-256: $hash"
 Write-Host "Note the SHA-256: on the VM, sha256sum cpc-$version.tar.gz must print the same value."
-Write-Host "Next: carry the file to the VM and follow deployment\README.md (inside the bundle)."
+Write-Host "Next: carry the file to the VM, then: tar -xzf $name.tar.gz && cd $name && sudo ./install.sh"
+Write-Host "(README.md and README-AR.md inside the kit explain each step)."

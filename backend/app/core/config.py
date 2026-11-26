@@ -117,6 +117,15 @@ class Settings:
     # Where scheduled reports are written (a local folder or a shared folder on the local network; the system is
     # air-gapped and never sends e-mail). REPORTS_OUTPUT_DIR; relative paths are relative to the project folder.
     reports_dir: str = str(DATA_DIR / "reports")
+    # ---- what Settings > connections manages (services/connections/config_service.py lays it over these) ----
+    ldap_search_scope: str = "subtree"      # subtree | level (Settings only; ldap.env always searches the subtree)
+    ldap_user_object_class: str = "user"
+    # The approved destinations (services/connections/egress.py) once Settings manages the directory; None: the
+    # directory of ldap.env, which is not checked against them.
+    egress_rules: tuple | None = None
+    # The keys that encrypt the secrets saved in Settings (core/secretbox.py): the current one first, then the previous
+    # ones during a rotation. From SETTINGS_KEY / SETTINGS_KEY_FILE / SETTINGS_KEY_PREVIOUS; never in the database.
+    settings_keys: tuple = field(default=(), repr=False)
 
     @property
     def data_mode(self) -> str:
@@ -291,6 +300,38 @@ def _load_settings_files() -> None:
     load_dotenv(dot_env, override=False)
 
 
+def _settings_keys(profile: str) -> tuple:
+    """SETTINGS_KEY (or SETTINGS_KEY_FILE), then SETTINGS_KEY_PREVIOUS (comma-separated, for a rotation). Required on the
+    oracle profile; the demo and test profiles make a local key file on first use (data/settings.key, git-ignored)."""
+    from .secretbox import NEW_KEY_COMMAND, local_key, parse_key  # cryptography is imported only when settings are built
+
+    keys = []
+    text, file_name = _env("SETTINGS_KEY"), _env("SETTINGS_KEY_FILE")
+    try:
+        if text:
+            if text.startswith("<") and text.endswith(">"):
+                raise ConfigError(f"SETTINGS_KEY is still the example placeholder: make a key with {NEW_KEY_COMMAND}")
+            keys.append(parse_key(text, "SETTINGS_KEY"))
+        elif file_name:
+            path = Path(file_name.strip('"'))
+            path = path if path.is_absolute() else PROJECT_ROOT / path
+            try:
+                keys.append(parse_key(path.read_text(encoding="ascii"), "SETTINGS_KEY_FILE"))
+            except OSError as exc:
+                raise ConfigError(f"SETTINGS_KEY_FILE {str(path)!r} cannot be read ({exc.strerror or exc}).") from None
+        elif profile == "oracle":
+            raise ConfigError("The oracle profile needs SETTINGS_KEY (or SETTINGS_KEY_FILE): the key that encrypts the "
+                              f"passwords saved in Settings. Make one with {NEW_KEY_COMMAND} and keep a copy safe.")
+        else:
+            keys.append(local_key(DATA_DIR / ("settings-test.key" if profile == "test" else "settings.key")))
+        for n, old in enumerate((_env("SETTINGS_KEY_PREVIOUS") or "").split(","), start=1):
+            if old.strip():
+                keys.append(parse_key(old, f"SETTINGS_KEY_PREVIOUS (key {n})"))
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from None
+    return tuple(keys)
+
+
 def load_settings(profile: str | None = None, overrides: dict | None = None) -> Settings:
     """Build Settings from the environment. `overrides` lets tests replace individual fields."""
     _load_settings_files()
@@ -337,6 +378,7 @@ def load_settings(profile: str | None = None, overrides: dict | None = None) -> 
         login_window_seconds=_env_int("LOGIN_WINDOW_SECONDS", 300),
         log_level=log_level,
         local_env=local,
+        settings_keys=_settings_keys(profile),
         **sign_in,
     )
 

@@ -3,12 +3,17 @@
 ldap.env
 oracle-local.env
 
+# The local encryption keys of Settings > connections (demo and test profiles make them on first use)
+data/settings.key
+data/settings-test.key
+
 # Demo / test databases (rebuilt from the seed on first start)
 data/*.db
 data/*.db-wal
 data/*.db-shm
 data/*.db-journal
 data/files/
+data/backups/
 
 # Python environment (recreated by scripts/run_dev.ps1)
 .venv/
@@ -43,7 +48,11 @@ deployment/app.env
 deployment/.env
 deployment/data/
 deployment/backups/
-deployment/nginx/certs/*
-!deployment/nginx/certs/README.md
+deployment/certs/*
+!deployment/certs/README.md
+deployment/install.conf
 deployment/ldap/*
 !deployment/ldap/README.md
+
+# An older nested copy of this project (not part of the repo)
+/Testing-and-Studies/

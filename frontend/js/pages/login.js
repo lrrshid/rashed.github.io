@@ -7,11 +7,6 @@ import { capabilityScene, followPointer } from '../components/scene.js';
 import { mode, setMode } from '../lib/theme.js';
 import { paletteButton } from '../components/palette.js';
 
-// The demo accounts listed on a local demo (options.mockAccounts); their shared password is public by design.
-const MOCK_ACCOUNTS = ['mock.admin', 'mock.exec', 'mock.head', 'mock.capability', 'mock.pm', 'mock.maint', 'mock.test',
-  'mock.analyst', 'mock.viewer'];
-const MOCK_PASSWORD = 'Mock-Pass-123';
-
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Small line icons inside the fields (decorative): a person and a padlock.
 const FIELD_ICONS = {
@@ -69,11 +64,6 @@ export function renderLogin(container, options, onSignedIn) {
       ['pillarDevelopment', 'pillarReadiness', 'pillarExcellence'].map((key, i) => [i ? h('i', { 'aria-hidden': 'true' }) : null,
         h('span', { text: t(`auth.${key}`) })]))),
     h('div', { class: 'login-chips' }, ['UAV', 'UGV', 'USV', 'UUV', 'AI'].map((code) => h('span', { class: 'login-chip', text: code }))));
-  const demo = options.mockAccounts ? h('div', { class: 'mock-hint' },
-    h('div', { class: 'demo-title', text: t('auth.demoTitle') }),
-    h('div', { class: 'demo-chips' }, MOCK_ACCOUNTS.map((a) => h('span', { class: 'demo-chip', dir: 'ltr', text: a }))),
-    h('div', { class: 'demo-pass' }, h('span', { text: `${t('auth.password')}: ` }),
-      h('span', { class: 'demo-chip gold', dir: 'ltr', text: MOCK_PASSWORD }))) : null;
   // Top corner (top right in Arabic), as in the top bar: light / dark mode and the colours for this browser (the
   // panel also leads to the colours for everyone, opened after a system administrator signs in).
   const modeBtn = h('button', { type: 'button', class: 'login-quick-btn', 'aria-label': t('top.darkMode'), title: t('top.darkMode'),
@@ -95,7 +85,6 @@ export function renderLogin(container, options, onSignedIn) {
         : options.authMode === 'ldap' ? t('auth.directoryHint') : t('auth.cardHint') }),
       h('div', { class: 'login-ornament' }, h('span'), h('i'), h('span'))),
     form,
-    demo,
     h('div', { class: 'login-lang' }, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', lang: other,
       text: other === 'ar' ? 'العربية' : 'English', onclick: () => setLanguage(other) })));
   const wrap = h('div', { class: 'login-wrap' }, capabilityScene('full'), quick, hero, card);

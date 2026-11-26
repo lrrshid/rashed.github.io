@@ -3,12 +3,14 @@ from __future__ import annotations
 
 from flask import jsonify, request
 
-from ...models import Asset, DevelopmentOpportunity, MaintenanceOrder, TestEvent
+from ...models import Asset, DevelopmentOpportunity, GoldenSampleTrial, MaintenanceOrder, TestEvent
 from ...schemas.common import Query
-from ...schemas.operations import (AiCriterionUpdate, DevelopmentCreate, DevelopmentUpdate, MaintenanceCreate,
-                                   MaintenanceUpdate, ModelAiUpdate, TestCreate, TestUpdate)
+from ...schemas.operations import (AiCriterionUpdate, DevelopmentCreate, DevelopmentUpdate, GoldenTrialCreate,
+                                   GoldenTrialUpdate, MaintenanceCreate, MaintenanceUpdate, ModelAiUpdate, TestCreate,
+                                   TestUpdate)
 from ...security.auth import PERM_VIEW, permission_required
-from ...services import context, operations_service, project_service, search_service, testing_service
+from ...services import (context, golden_service, operations_service, project_service, search_service,
+                         testing_service)
 from . import body, bp, created, user
 from .admin import register_history
 from .capabilities import _codes, id_list
@@ -17,6 +19,32 @@ register_history("TEST_EVENT", TestEvent, "Test")
 register_history("MAINTENANCE_ORDER", MaintenanceOrder, "Maintenance order",
                  lambda e: context.session().get(Asset, e.asset_id).department_id)
 register_history("DEVELOPMENT_OPPORTUNITY", DevelopmentOpportunity, "Development opportunity")
+register_history("GOLDEN_SAMPLE_TRIAL", GoldenSampleTrial, "Golden-sample trial")
+
+
+@bp.get("/golden-samples")
+@permission_required(PERM_VIEW)
+def list_golden_samples():
+    q = Query(request.args, {"model", "status"})
+    return jsonify(golden_service.list_trials(user(), {"model": id_list(q, "model"), "status": _codes(q, "status")}))
+
+
+@bp.get("/golden-samples/next-code")
+@permission_required(PERM_VIEW)
+def next_golden_code():
+    Query(request.args, set())
+    return jsonify({"code": project_service.next_code(GoldenSampleTrial, "GS")})
+
+
+@bp.post("/golden-samples")
+def create_golden_sample():
+    result = golden_service.save_trial(user(), GoldenTrialCreate.model_validate(body()))
+    return created(result, f"/api/v1/golden-samples/{result['id']}")
+
+
+@bp.patch("/golden-samples/<int:trial_id>")
+def update_golden_sample(trial_id: int):
+    return jsonify(golden_service.save_trial(user(), GoldenTrialUpdate.model_validate(body()), trial_id))
 
 
 @bp.get("/tests")

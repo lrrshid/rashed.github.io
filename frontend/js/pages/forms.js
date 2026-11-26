@@ -2,6 +2,7 @@
 // (English and Arabic names) side by side; the server validates everything again and its field errors are shown
 // under the fields they name.
 import { api } from '../api.js';
+import { ACCEPT, fileUrl } from '../components/attachments.js';
 import { h } from '../lib/dom.js';
 import { lookupList, statuses } from '../lib/state.js';
 import { name, t } from '../labels.js';
@@ -9,10 +10,13 @@ import { dateField } from '../components/date-field.js';
 import { openModal } from '../components/modal.js';
 import { listOptions, toast } from '../components/ui.js';
 
-// spec: [{ key, label, type: text|number|select|date|textarea|checks|bool, options, required, span, dir }]
+// spec: [{ key, label, type: text|number|select|date|textarea|checks|bool|file, options, required, span, dir, showWhen }]
+// showWhen(values): the field is shown only while it answers true (re-checked on every change); a hidden field sends its
+// empty value ([] or null), so the server never gets a choice the person could not see.
 export function formDialog({ title, spec, values = {}, submit, onSaved, size = 'lg', withReason = false }) {
   const controls = {};
   const errors = {};
+  const wrappers = {};
   const grid = h('div', { class: 'form-grid' });
   for (const f of spec) {
     let control;
@@ -31,6 +35,13 @@ export function formDialog({ title, spec, values = {}, submit, onSaved, size = '
     } else if (f.type === 'checks') {
       control = h('div', { class: 'checks' }, f.options.map((o) => h('label', {},
         h('input', { type: 'checkbox', value: o.value, checked: (value || []).includes(o.value) || undefined }), o.label)));
+    } else if (f.type === 'file') {
+      // A scan to attach after the record is saved (components/attachments.js); `current` shows the file it replaces.
+      const input = h('input', { type: 'file', class: 'input', accept: f.accept || ACCEPT });
+      control = h('div', { class: 'file-field' }, input, f.current ? h('div', { class: 'muted small' }, `${t('attachments.current')} `,
+        h('a', { href: fileUrl(f.current.id), target: '_blank', rel: 'noopener', text: `${f.current.fileName} (v${f.current.version})` }),
+        ` · ${t('attachments.newVersionHint')}`) : null);
+      control.fileInput = input;
     } else if (f.type === 'bool') {
       control = h('select', { class: 'select' }, h('option', { value: '', text: t('common.none') }),
         h('option', { value: 'true', text: t('common.yes'), selected: value === true || undefined }),
@@ -45,9 +56,19 @@ export function formDialog({ title, spec, values = {}, submit, onSaved, size = '
     const id = `fld-${f.key}`;
     const input = control.querySelector && control.matches && !control.matches('input,select,textarea') ? control.querySelector('input') : control;
     if (input && f.type !== 'checks') input.id = id;
-    grid.append(h('div', { class: `field ${f.span ? 'span-all' : ''}` },
+    wrappers[f.key] = h('div', { class: `field ${f.span ? 'span-all' : ''}` },
       f.type === 'checks' ? h('span', { class: 'label', text: f.label + (f.required ? ' *' : '') }) : h('label', { for: id, text: f.label + (f.required ? ' *' : '') }),
-      control, err));
+      control, err);
+    grid.append(wrappers[f.key]);
+  }
+  const conditional = spec.filter((f) => f.showWhen);
+  const applyConditions = () => {
+    const now = read();
+    for (const f of conditional) wrappers[f.key].hidden = !f.showWhen(now);
+  };
+  if (conditional.length) {
+    grid.addEventListener('change', applyConditions);
+    grid.addEventListener('input', applyConditions);
   }
   let reason = null;
   if (withReason) {
@@ -59,6 +80,7 @@ export function formDialog({ title, spec, values = {}, submit, onSaved, size = '
   const cancel = h('button', { type: 'button', class: 'btn', text: t('common.cancel') });
   const modal = openModal({ title, body: h('div', {}, formError, grid), footer: [cancel, save], size });
   cancel.addEventListener('click', () => modal.close(true));
+  if (conditional.length) applyConditions();
 
   function read() {
     const out = {};
@@ -66,9 +88,11 @@ export function formDialog({ title, spec, values = {}, submit, onSaved, size = '
       if (f.readonly) continue;
       const c = controls[f.key];
       let v;
-      if (f.type === 'checks') v = [...c.querySelectorAll('input:checked')].map((i) => i.value);
+      if (wrappers[f.key].hidden) v = f.type === 'checks' ? [] : null;  // not shown: not chosen
+      else if (f.type === 'checks') v = [...c.querySelectorAll('input:checked')].map((i) => i.value);
       else if (f.type === 'date') v = c.dateInput.value || (c.dateInput.dateInvalid ? 'invalid' : null);
       else if (f.type === 'bool') v = c.value === '' ? null : c.value === 'true';
+      else if (f.type === 'file') v = c.fileInput.files[0] || null;
       else if (f.type === 'number') v = c.value === '' ? null : Number(c.value);
       else v = c.value.trim() === '' ? null : c.value.trim();
       out[f.key] = v;

@@ -76,25 +76,81 @@ def test_image_takes_only_what_it_runs():
 
 
 def test_nginx_admits_the_largest_upload_and_sets_the_forwarded_headers():
-    conf = _read(DEPLOYMENT / "nginx" / "nginx.conf")
-    size = re.search(r"client_max_body_size\s+(\d+)m;", conf)
-    assert size and int(size.group(1)) * 1024 * 1024 >= UPLOAD_LIMIT
-    # Replaced, never appended ($proxy_add_x_forwarded_for would let a browser choose its own address).
-    assert "proxy_set_header X-Forwarded-For   $remote_addr;" in conf
-    assert "$proxy_add_x_forwarded_for" not in conf
-    assert "proxy_set_header X-Forwarded-Proto https;" in conf
-    assert "proxy_pass http://cpc_app;" in conf and "server app:8080" in conf
+    # The bundled nginx (a VM without nginx) and the site added to the VM's own nginx say the same.
+    for path, upstream in ((DEPLOYMENT / "nginx" / "nginx.conf", ("proxy_pass http://cpc_app;", "server app:8080")),
+                           (DEPLOYMENT / "nginx" / "cpc-site.conf.template",
+                            ("proxy_pass http://cpc_portfolio_app;", "server 127.0.0.1:@APP_PORT@;"))):
+        conf = _read(path)
+        size = re.search(r"client_max_body_size\s+(\d+)m;", conf)
+        assert size and int(size.group(1)) * 1024 * 1024 >= UPLOAD_LIMIT, path.name
+        # Replaced, never appended ($proxy_add_x_forwarded_for would let a browser choose its own address).
+        assert "proxy_set_header X-Forwarded-For   $remote_addr;" in conf, path.name
+        assert "$proxy_add_x_forwarded_for" not in conf, path.name
+        assert "proxy_set_header X-Forwarded-Proto https;" in conf, path.name
+        assert all(part in conf for part in upstream), path.name
 
 
-def test_vm_settings_template_is_production_behind_one_proxy():
+def test_the_installer_fills_every_placeholder_of_the_nginx_site():
+    template = _read(DEPLOYMENT / "nginx" / "cpc-site.conf.template")
+    install = _read(DEPLOYMENT / "install.sh")
+    placeholders = set(re.findall(r"@[A-Z_]+@", template))
+    assert placeholders >= {"@SERVER_NAME@", "@HTTPS_PORT@", "@APP_PORT@", "@CERT@", "@KEY@"}
+    for placeholder in placeholders:
+        assert f"s|{placeholder}|" in install, placeholder
+    # Works on the nginx of older distributions: no http2 directive, a cache zone name of its own.
+    directives = " ".join(line for line in template.splitlines() if not line.lstrip().startswith("#"))
+    assert "http2" not in directives and "shared:CPC_PORTFOLIO_SSL:" in directives
+    assert "nginx -t" in install  # the VM's nginx is reloaded only with a configuration it accepts
+
+
+def test_vm_settings_are_production_behind_one_proxy():
     env = dict(re.findall(r"^([A-Z_]+)=(.*)$", _read(DEPLOYMENT / "app.env.example"), re.M))
-    assert env["APP_PROFILE"] == "oracle" and env["APP_ENV"] == "production"
-    assert env["TRUSTED_PROXY_COUNT"] == "1"
-    assert int(env["ORACLE_POOL_MAX"]) >= int(env["APP_THREADS"])   # one connection per busy thread
-    compose = _read(DEPLOYMENT / "docker-compose.yml")
-    app_service = compose.split("\n  proxy:")[0]
-    assert not re.search(r"^\s+ports:", app_service, re.M)      # the app is reachable through nginx only
-    assert "read_only: true" in app_service and "./data:/app/data" in app_service
+    assert env["APP_ENV"] == "production" and env["TRUSTED_PROXY_COUNT"] == "1"
+    assert env["APP_PROFILE"] == "demo" and env["DEMO_DB_PATH"].startswith("/app/data/")  # built-in, in the data folder
+    assert "# ORACLE_POOL_MAX=8" in _read(DEPLOYMENT / "app.env.example")                   # Oracle: the other block
+    install = _read(DEPLOYMENT / "install.sh")
+    for line in ("APP_ENV=production", "TRUSTED_PROXY_COUNT=1", "APP_PROFILE=demo", "APP_PROFILE=oracle"):
+        assert f'echo "{line}"' in install, line
+    # The app container: published on the VM's loopback only (nginx is the way in), read-only, data in a host folder.
+    start = install.index('docker run -d --name "$CONTAINER"')
+    run = install[start:install.index('"cpc:$VERSION" >/dev/null', start)]
+    assert re.findall(r'-p "([^"]+)"', run) == ["127.0.0.1:$APP_PORT:8080"]
+    assert "--read-only" in run and "/app/data" in run and "--cap-drop ALL" in run
+
+
+def test_the_kit_needs_nothing_from_the_internet_and_asks_no_secret_on_the_command_line():
+    for name in ("install.sh", "scripts/app.sh"):
+        script = _read(DEPLOYMENT / name)
+        for banned in ("docker pull", "wget ", "apt-get", "yum ", "dnf ", "pip install", "http://", "--password "):
+            assert banned not in script.replace("http://127.0.0.1", "").replace("http://cpc_portfolio_app", ""), \
+                (name, banned)
+        for line in script.splitlines():
+            if re.search(r"(^|\s)curl\s+-", line):
+                assert "--resolve" in line and "127.0.0.1" in line, line  # only to check the site on this VM
+    install = _read(DEPLOYMENT / "install.sh")
+    assert "--password-stdin" in install and "docker load -i" in install
+    assert "sha256sum --quiet -c SHA256SUMS" in install
+
+
+def test_the_kit_keeps_its_scripts_executable(tmp_path):
+    import importlib.util
+    import tarfile
+
+    spec = importlib.util.spec_from_file_location("pack", ROOT / "predeployment" / "pack.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    pack = module.pack
+
+    kit = tmp_path / "cpc-test"
+    (kit / "scripts").mkdir(parents=True)
+    (kit / "install.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    (kit / "scripts" / "app.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    (kit / "README.md").write_text("# kit\n", encoding="utf-8")
+    pack(kit, tmp_path / "kit.tar.gz")
+    with tarfile.open(tmp_path / "kit.tar.gz") as tar:
+        modes = {m.name: (m.mode, m.uid) for m in tar.getmembers()}
+    assert modes["cpc-test/install.sh"] == (0o755, 0) and modes["cpc-test/scripts/app.sh"] == (0o755, 0)
+    assert modes["cpc-test/README.md"] == (0o644, 0) and modes["cpc-test"][0] == 0o755
 
 
 def test_guides_name_the_latest_oracle_script():
@@ -107,5 +163,6 @@ def test_guides_name_the_latest_oracle_script():
 
 def test_secret_files_stay_out_of_git():
     ignored = _read(ROOT / ".gitignore")
-    for pattern in ("dist/", "deployment/app.env", "deployment/data/", "deployment/backups/"):
+    for pattern in ("dist/", "deployment/app.env", "deployment/data/", "deployment/backups/", "deployment/certs/*",
+                    "deployment/install.conf"):
         assert pattern in ignored, pattern

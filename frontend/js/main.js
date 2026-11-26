@@ -28,6 +28,11 @@ route('/milestones', () => import('./pages/milestones.js'));
 route('/risks', () => import('./pages/risks.js'));
 route('/issues', () => import('./pages/issues.js'));
 for (const path of ['/testing', '/maintenance', '/ai', '/development', '/decision']) route(path, () => import('./pages/operations.js'));
+route('/maintenance/capability', () => import('./pages/operations.js'));
+route('/golden-samples', () => import('./pages/golden.js'));
+for (const path of ['/culture/references', '/culture/guide', '/culture/acquisition']) route(path, () => import('./pages/culture.js'));
+// User tracking; /user-board was its earlier address (the user board it replaced).
+for (const path of ['/user-tracking', '/user-board']) route(path, () => import('./pages/user-tracking.js'));
 route('/documents', () => import('./pages/documents.js'));
 route('/alerts', () => import('./pages/alerts.js'));
 route('/settings', () => import('./pages/settings.js'));

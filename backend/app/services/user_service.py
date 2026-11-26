@@ -117,7 +117,7 @@ USERNAME_RE = re.compile(r"[A-Za-z0-9._@-]+")
 
 def create_user(username: str, display_name: str | None, role: str, password: str | None,
                 actor: AppUser | None = None, department_ids: list[int] | None = None,
-                note: str | None = None, break_glass: bool = False) -> AppUser:
+                note: str | None = None, break_glass: bool = False, commit: bool = True) -> AppUser:
     """Create a user. password=None creates an account that can never log in with a stored password (unusable
     hash); the API instead passes the password through _initial_password first, except with AUTH_MODE=ldap, where
     people sign in with the company directory. `actor` defaults to the new user itself (bootstrap of the first
@@ -133,6 +133,10 @@ def create_user(username: str, display_name: str | None, role: str, password: st
     if not USERNAME_RE.fullmatch(username):
         raise ValidationFailed.field(
             "username", "Use only letters A-Z, digits and . _ - @ in a username (no spaces or accented letters).")
+    settings = context.settings()
+    if username.lower().startswith("mock.") and not (settings.profile in ("demo", "test") and settings.local_env):
+        # The demo world is made by the mock.* accounts: a real database never has one (owner, 24 Nov 2026).
+        raise ValidationFailed.field("username", "Names starting with mock. are reserved for the local demo.")
     if len(display_name) > 160:
         raise ValidationFailed.field("displayName", "Display name must be at most 160 characters.")
     if password is not None and len(password) < 8:
@@ -157,7 +161,8 @@ def create_user(username: str, display_name: str | None, role: str, password: st
     if note is None and password is None:
         note = "Account that cannot log in."
     audit_service.record(actor or user, "CREATE", user, None, audit_service.snapshot(user), note)
-    session.commit()
+    if commit:  # an Excel import adds every row in one transaction (services/user_import.py)
+        session.commit()
     return user
 
 

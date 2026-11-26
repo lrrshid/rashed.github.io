@@ -21,7 +21,11 @@ def clock() -> Clock:
 
 
 def settings() -> Settings:
-    return current_app.config["SETTINGS"]
+    """The configuration in effect: the start-up settings with what Settings > connections manages (the sign-in
+    method, the directory) laid over them (services/connections/config_service.py)."""
+    from .connections.config_service import effective
+
+    return effective()
 
 
 def now() -> datetime:

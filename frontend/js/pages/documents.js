@@ -1,7 +1,7 @@
 // Document management: versioned documents linked to records; upload a new version, open or download any version.
 import { api, request } from '../api.js';
 import { debounce, h, icon, replace } from '../lib/dom.js';
-import { canEdit } from '../lib/state.js';
+import { canChange, canEdit } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatDate, formatDateTime, formatNumber } from '../lib/format.js';
 import { openModal } from '../components/modal.js';
@@ -10,6 +10,8 @@ import { formDialog } from './forms.js';
 
 const size = (bytes) => (bytes >= 1048576 ? `${formatNumber(bytes / 1048576, 1)} MB` : `${formatNumber(bytes / 1024, 0)} KB`);
 const fileUrl = (doc, version) => `/api/v1/documents/${doc.id}/file${version ? `?version=${version}` : ''}`;
+// Kinds kept in the culture library (pages/culture.js); the server refuses them anywhere else.
+const LIBRARY_TYPES = ['REFERENCE', 'USER_GUIDE', 'ACQUISITION_PLAN'];
 
 export async function render(container, ctx) {
   const filters = { q: ctx.query.q || '', type: ctx.query.type || '', entityType: ctx.query.entityType || '' };
@@ -56,7 +58,8 @@ async function newDocument(onSaved) {
     title: t('documents.newTitle'), size: 'md', values: { code, docType: 'REPORT' },
     spec: [
       { key: 'code', label: t('documents.fields.code'), required: true, readonly: true, dir: 'ltr' },
-      { key: 'docType', label: t('documents.fields.type'), type: 'select', required: true, options: Object.keys(t('documents.types')).map((k) => ({ value: k, label: t(`documents.types.${k}`) })) },
+      { key: 'docType', label: t('documents.fields.type'), type: 'select', required: true, options: Object.keys(t('documents.types'))
+        .filter((k) => !LIBRARY_TYPES.includes(k)).map((k) => ({ value: k, label: t(`documents.types.${k}`) })) },
       { key: 'titleEn', label: t('documents.fields.titleEn'), required: true, max: 200, dir: 'ltr', span: true },
       { key: 'titleAr', label: t('documents.fields.titleAr'), required: true, max: 200, dir: 'rtl', span: true },
       { key: 'record', label: t('documents.fields.linkedRecord'), type: 'select', required: true, options: records, span: true },
@@ -90,7 +93,8 @@ async function showDocument(id, onChanged) {
     replace(body,
       h('h3', { text: `${doc.code} · ${name(doc, 'title')}` }),
       h('p', { class: 'muted small' }, `${t(`documents.types.${doc.docType}`)} · `, h('a', { href: doc.linked.link, text: `${t(`documents.entities.${doc.linked.type}`)} ${doc.linked.code} · ${name(doc.linked)}` })),
-      canEdit('edit.documents') ? card(t('documents.upload'), h('div', { class: 'form-grid' }, field(t('documents.file'), fileInput), field(t('documents.note'), note),
+      // The first file completes a new document (adding); a later one replaces it, a change (records.change).
+      (doc.currentVersion ? canChange('edit.documents') : canEdit('edit.documents')) ? card(t('documents.upload'), h('div', { class: 'form-grid' }, field(t('documents.file'), fileInput), field(t('documents.note'), note),
         h('div', { class: 'field' }, h('span', { class: 'label', text: ' ' }), uploadBtn))) : null,
       h('div', { class: 'section-label', text: t('documents.versions') }),
       dataTable([

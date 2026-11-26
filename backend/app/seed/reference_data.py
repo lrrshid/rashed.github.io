@@ -4,28 +4,26 @@ defaults. All of it is editable afterwards in Settings; the seeders only add wha
 from __future__ import annotations
 
 ALL_PERMISSIONS = ("view", "edit.requirements", "edit.models", "edit.assets", "edit.projects", "edit.risks",
-                   "edit.maintenance", "edit.testing", "edit.documents", "reports.view", "reports.exec",
-                   "reports.build", "reports.schedule", "export", "admin")
+                   "edit.maintenance", "edit.testing", "edit.documents", "records.change", "reports.view",
+                   "reports.exec", "reports.build", "reports.schedule", "export", "tracking.view", "admin")
+# "Add and view": add records of every kind and see everything, without records.change (what they add is changed or
+# archived only by the roles above them), administration, the leadership reports, building reports or exporting.
+ADD_AND_VIEW = ("view", "edit.requirements", "edit.models", "edit.assets", "edit.projects", "edit.risks",
+                "edit.maintenance", "edit.testing", "edit.documents", "reports.view")
 
-# code, English, Arabic, scope, permissions
+# The organisation's structure (owner, 25 Nov 2026), top down: the commander and the system administrator, under them
+# the head of the Capability Development Section, under that head the heads of the Security Systems and Unmanned Systems
+# sections, then the project manager, then the user. The five heads of the structure have every permission (owner:
+# "all permissions, like the commander"); the project manager and the user add and view.
+# code, English, Arabic, scope, permissions, level (1 = top)
 ROLES = (
-    ("SYS_ADMIN", "System administrator", "مدير النظام", "ALL", ALL_PERMISSIONS),
-    ("EXECUTIVE", "Executive leadership", "القيادة التنفيذية", "ALL",
-     ("view", "reports.view", "reports.exec", "export")),
-    ("DEPT_HEAD", "Head of department", "رئيس المجموعة", "DEPARTMENT",
-     ("view", "edit.requirements", "reports.view", "reports.exec", "export")),
-    ("CAPABILITY_MGR", "Capability manager", "مدير القدرات", "ALL",
-     ("view", "edit.requirements", "edit.models", "edit.assets", "edit.documents", "reports.view", "reports.exec",
-      "reports.build", "export")),
-    ("PROJECT_MGR", "Project manager", "مدير المشروع", "ALL",
-     ("view", "edit.projects", "edit.risks", "edit.documents", "reports.view", "export")),
-    ("MAINTENANCE", "Maintenance team", "فريق الصيانة", "ALL",
-     ("view", "edit.maintenance", "edit.documents", "reports.view")),
-    ("TESTING", "Testing team", "فريق التجارب", "ALL",
-     ("view", "edit.testing", "edit.documents", "reports.view")),
-    ("ANALYST", "Analyst", "محلل", "ALL",
-     ("view", "reports.view", "reports.exec", "reports.build", "reports.schedule", "export")),
-    ("VIEWER", "Viewer", "مطّلع", "ALL", ("view", "reports.view")),
+    ("COMMANDER", "Commander", "القائد", "ALL", ALL_PERMISSIONS, 1),
+    ("SYS_ADMIN", "System administrator", "مدير النظام", "ALL", ALL_PERMISSIONS, 1),
+    ("HEAD_CAP_DEV", "Head of the Capability Development Section", "رئيس شعبة تطوير القدرات", "ALL", ALL_PERMISSIONS, 2),
+    ("HEAD_SECURITY", "Head of the Security Systems Section", "رئيس شعبة الأنظمة الأمنية", "ALL", ALL_PERMISSIONS, 3),
+    ("HEAD_UNMANNED", "Head of the Unmanned Systems Section", "رئيس شعبة الأنظمة المسيّرة", "ALL", ALL_PERMISSIONS, 3),
+    ("PROJECT_MGR", "Project manager", "مدير المشروع", "ALL", ADD_AND_VIEW, 4),
+    ("USER", "User", "المستخدم", "ALL", ADD_AND_VIEW, 5),
 )
 
 # domain -> (code, English, Arabic, colour, terminal)

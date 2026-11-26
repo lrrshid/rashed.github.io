@@ -13,7 +13,7 @@ from ..models import (CapabilityCategory, CapabilityModel, CapabilityRequirement
                       WorkflowStage)
 from ..repositories import common as repo
 from ..schemas.dto import record_meta, sid
-from ..security.auth import (ALL_DEPARTMENTS, PERM_EDIT_PROJECTS, PERM_EDIT_RISKS, department_scope,
+from ..security.auth import (ALL_DEPARTMENTS, PERM_EDIT_PROJECTS, PERM_EDIT_RISKS, department_scope, require_change,
                              require_department_access)
 from . import audit_service, context, crud, lookup_service as lk, project_health
 
@@ -380,6 +380,8 @@ def update_project(actor, project_id: int, data) -> dict:
 
 def set_health_note(actor, project_id: int, dimension: str, rag: str, reason_en, reason_ar, reason) -> dict:
     p = _load(actor, project_id, for_update=True)
+    # A note sets how an existing project is judged: a change, also when it is the first note on that indicator.
+    require_change(actor, PERM_EDIT_PROJECTS, p.department_id)
     session = context.session()
     note = session.scalar(select(ProjectHealthNote).where(ProjectHealthNote.project_id == p.id,
                                                           ProjectHealthNote.dimension == dimension))

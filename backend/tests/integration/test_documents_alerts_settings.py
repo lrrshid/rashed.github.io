@@ -43,28 +43,27 @@ def test_documents_follow_the_department_scope(head, admin):
     assert all(d["department"] is None or d["department"]["code"] == "G2" for d in head.json("/api/v1/documents")["items"])
 
 
-def test_alerts_are_role_based_and_acknowledged_per_user(admin, executive, app):
-    from tests.conftest import Api
-    maint = Api(app, "mock.maint")
+def test_alerts_are_role_based_and_acknowledged_per_user(admin, commander, staff):
     types_admin = {a["type"] for a in admin.json("/api/v1/alerts")["items"]}
-    types_maint = {a["type"] for a in maint.json("/api/v1/alerts")["items"]}
-    assert "SPARE_PARTS_SHORTAGE" in types_maint and "BUDGET_OVERRUN" not in types_maint
+    types_user = {a["type"] for a in staff.json("/api/v1/alerts")["items"]}  # the field ones, not the budget
+    assert "SPARE_PARTS_SHORTAGE" in types_user and "BUDGET_OVERRUN" not in types_user
     assert "BUDGET_OVERRUN" in types_admin
-    before = executive.json("/api/v1/alerts/count")["open"]
-    key = executive.json("/api/v1/alerts")["items"][0]["key"]
-    assert executive.post("/api/v1/alerts/acknowledge", json={"keys": [key]}).status_code == 200
-    assert executive.json("/api/v1/alerts/count")["open"] == before - 1
+    before = commander.json("/api/v1/alerts/count")["open"]
+    key = commander.json("/api/v1/alerts")["items"][0]["key"]
+    assert commander.post("/api/v1/alerts/acknowledge", json={"keys": [key]}).status_code == 200
+    assert commander.json("/api/v1/alerts/count")["open"] == before - 1
     assert admin.json("/api/v1/alerts?open=true")["open"] == admin.json("/api/v1/alerts/count")["open"]
 
 
-def test_alert_rule_change_hides_a_type(admin, executive):
+def test_alert_rule_change_hides_a_type(admin, commander, staff):
+    assert any(a["type"] == "PROJECT_DELAYED" for a in commander.json("/api/v1/alerts")["items"])
     rules = {r["type"]: r for r in admin.json("/api/v1/alert-rules")["items"]}
     rule = rules["PROJECT_DELAYED"]
     res = admin.put("/api/v1/alert-rules/PROJECT_DELAYED", json={"roles": ["SYS_ADMIN"], "enabled": True,
                                                                  "version": rule["version"]})
     assert res.status_code == 200, res.get_json()
-    assert not any(a["type"] == "PROJECT_DELAYED" for a in executive.json("/api/v1/alerts")["items"])
-    assert executive.put("/api/v1/alert-rules/PROJECT_DELAYED", json={"roles": [], "enabled": False}).status_code == 403
+    assert not any(a["type"] == "PROJECT_DELAYED" for a in commander.json("/api/v1/alerts")["items"])
+    assert staff.put("/api/v1/alert-rules/PROJECT_DELAYED", json={"roles": [], "enabled": False}).status_code == 403
 
 
 def test_settings_lists_are_admin_only_and_audited(admin, capability):

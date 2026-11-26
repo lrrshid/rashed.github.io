@@ -6,12 +6,13 @@ Windows password: no password is sent or stored, and GET /users/directory-lookup
 """
 from __future__ import annotations
 
-from flask import jsonify, request
+from flask import Response, jsonify, request
 
+from ...exceptions import PayloadTooLarge, ValidationFailed
 from ...schemas.common import Query
 from ...schemas.user import UserCreate, UserUpdate
 from ...security.auth import admin_only
-from ...services import user_service
+from ...services import user_import, user_service
 from . import body, bp, created, user
 
 
@@ -29,6 +30,44 @@ def create_user():
     data = UserCreate.model_validate(body())
     result = user_service.create_user_as_admin(user(), data)
     return created(result, f"/api/v1/users/{result['id']}")
+
+
+@bp.get("/users/import-template")
+@admin_only
+def users_import_template():
+    """The Excel file to fill in with the people to add (?lang=en|ar)."""
+    query = Query(request.args, {"lang"})
+    content, name = user_import.template((query.choice("lang", ("EN", "AR")) or "EN").lower())
+    response = Response(content, mimetype=user_import.MEDIA_TYPE)
+    response.headers["Content-Disposition"] = f'attachment; filename="{name}"'
+    return response
+
+
+def _uploaded_workbook() -> tuple[bytes, str]:
+    """multipart/form-data: file. The only user routes allowed past the 64 KiB request limit (2 MB)."""
+    request.max_content_length = user_import.MAX_FILE_BYTES + 64 * 1024
+    if request.content_length is not None and request.content_length > request.max_content_length:
+        raise PayloadTooLarge(f"The file is larger than {user_import.MAX_FILE_BYTES // (1024 * 1024)} MB.")
+    upload = request.files.get("file")
+    if upload is None:
+        raise ValidationFailed.field("file", "Choose the Excel file.")
+    return upload.read(user_import.MAX_FILE_BYTES + 1), upload.filename or ""
+
+
+@bp.post("/users/import/check")
+@admin_only
+def users_import_check():
+    """What importing this file would do, row by row. Nothing is written."""
+    data, name = _uploaded_workbook()
+    return jsonify(user_import.check(user(), data, name))
+
+
+@bp.post("/users/import")
+@admin_only
+def users_import():
+    """Add every person of the file in one transaction (409 IMPORT_HAS_PROBLEMS while a row has a problem)."""
+    data, name = _uploaded_workbook()
+    return jsonify(user_import.import_file(user(), data, name))
 
 
 @bp.get("/users/directory-lookup")

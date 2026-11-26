@@ -16,7 +16,8 @@ from ..models import (AiLevelCriterion, AiTechnology, Asset, CapabilityCategory,
                       DevelopmentOpportunity, MaintenanceOrder, Milestone, ModelAiTech, Project, Risk, TestEvent)
 from ..schemas.dto import record_meta, sid
 from ..security.auth import ALL_DEPARTMENTS, PERM_EDIT_MAINTENANCE, PERM_EDIT_MODELS, department_scope
-from . import (asset_service, audit_service, context, crud, lookup_service as lk, metrics_service, project_health,
+from . import (asset_service, audit_service, context, crud, document_service, lookup_service as lk, metrics_service,
+               project_health,
                settings_service)
 
 # ---------------------------------------------------------------- maintenance --------------------------------------
@@ -29,7 +30,7 @@ def _asset_scope(actor, query):
     return query
 
 
-def maintenance_dto(m: MaintenanceOrder, asset: Asset) -> dict:
+def maintenance_dto(m: MaintenanceOrder, asset: Asset, files: dict | None = None) -> dict:
     today = context.today()
     terminal = m.status_code in ("COMPLETED", "CANCELLED")
     end = m.actual_end_date or (today if not terminal else m.expected_end_date)
@@ -42,6 +43,8 @@ def maintenance_dto(m: MaintenanceOrder, asset: Asset) -> dict:
             "actualEndDate": m.actual_end_date.isoformat() if m.actual_end_date else None,
             "progressPct": m.progress_pct, "cost": m.cost, "partsShortage": bool(m.parts_shortage),
             "partsText": m.parts_text, "performedBy": m.performed_by,
+            "entryReasonEn": m.entry_reason_en, "entryReasonAr": m.entry_reason_ar,
+            "attachments": {slot: (files or {}).get(slot) for slot in document_service.SLOTS["MAINTENANCE_ORDER"]},
             "overdue": not terminal and m.expected_end_date is not None and m.expected_end_date < today,
             "daysOverdue": max((today - m.expected_end_date).days, 0) if not terminal and m.expected_end_date else 0,
             "downtimeDays": max((end - m.start_date).days, 0) if end and m.start_date <= end else 0,
@@ -60,7 +63,8 @@ def maintenance(actor, f: dict) -> dict:
     if f.get("asset"):
         query = query.where(MaintenanceOrder.asset_id.in_(f["asset"]))
     rows = context.session().execute(query.order_by(MaintenanceOrder.start_date.desc())).all()
-    items = [maintenance_dto(m, a) for m, a in rows]
+    files = document_service.slot_status("MAINTENANCE_ORDER", [m.id for m, _ in rows])
+    items = [maintenance_dto(m, a, files.get(m.id)) for m, a in rows]
     open_items = [m for m in items if m["status"] not in ("COMPLETED", "CANCELLED")]
     done = [m for m in items if m["status"] == "COMPLETED"]
     # Readiness by department: averages over available assets (Settings: assets.available_statuses).
@@ -99,7 +103,8 @@ def maintenance(actor, f: dict) -> dict:
 
 
 _MAINT_FIELDS = ("asset_id", "maint_type", "title_en", "title_ar", "status_code", "start_date", "expected_end_date",
-                 "actual_end_date", "progress_pct", "cost", "parts_shortage", "parts_text", "performed_by")
+                 "actual_end_date", "progress_pct", "cost", "parts_shortage", "parts_text", "performed_by",
+                 "entry_reason_en", "entry_reason_ar")
 
 
 def save_maintenance(actor, data, order_id: int | None = None) -> dict:
@@ -207,8 +212,8 @@ def ai_overview(actor) -> dict:
 
 def set_model_ai(actor, model_id: int, codes: list[str], reason: str | None) -> dict:
     model = crud.load(CapabilityModel, model_id, actor, "Model", for_update=True)
-    from ..security.auth import require_edit
-    require_edit(actor, PERM_EDIT_MODELS)
+    from ..security.auth import require_change
+    require_change(actor, PERM_EDIT_MODELS)  # the model exists: changing its AI functions is a change
     session = context.session()
     techs = {t.code: t.id for t in session.scalars(select(AiTechnology))}
     unknown = [c for c in codes if c not in techs]

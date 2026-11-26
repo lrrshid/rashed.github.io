@@ -1,0 +1,56 @@
+# Capability Portfolio Command on this VM's nginx. Written by @HOME@/install.sh from
+# @HOME@/nginx/cpc-site.conf.template at every install or update: change the template or the install answers
+# (@HOME@/install.conf), not this file. The app runs in a container on 127.0.0.1:@APP_PORT@ only; nginx serves HTTPS.
+# Works with nginx 1.14 or newer (no http2 directive, a cache zone of its own).
+
+upstream cpc_portfolio_app {
+    server 127.0.0.1:@APP_PORT@;
+    keepalive 16;
+}
+
+# Plain HTTP only redirects to HTTPS.
+server {
+    listen 80;
+    server_name @SERVER_NAME@;
+    return 301 https://$host@PORT_SUFFIX@$request_uri;
+}
+
+server {
+    listen @HTTPS_PORT@ ssl;
+    server_name @SERVER_NAME@;
+
+    ssl_certificate     @CERT@;   # the certificate followed by its chain (PEM)
+    ssl_certificate_key @KEY@;    # PEM, no password
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:CPC_PORTFOLIO_SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # Document uploads are up to 20 MB (document_service.MAX_BYTES) plus the form around them.
+    client_max_body_size 21m;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/css text/javascript application/javascript application/json image/svg+xml;
+
+    access_log off;   # the app writes its own access log (docker logs cpc-app)
+
+    location / {
+        proxy_pass http://cpc_portfolio_app;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        # SET, never appended: the app trusts exactly one proxy (TRUSTED_PROXY_COUNT=1), so a browser cannot forge its
+        # address or the scheme by sending these headers itself.
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $request_id;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    300s;
+        proxy_read_timeout    300s;    # large Excel / PowerPoint exports and reports
+    }
+}

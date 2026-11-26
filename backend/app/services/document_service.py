@@ -17,7 +17,8 @@ from ..core.config import DATA_DIR
 from ..core.clock import iso_utc
 from ..exceptions import NotFound, PayloadTooLarge, ValidationFailed
 from ..models import (AppUser, Asset, CapabilityModel, CapabilityRequirement, Contract, Department, Document,
-                      DocumentVersion, MaintenanceOrder, Organization, Project, TestEvent)
+                      DocumentVersion, GoldenSampleTrial, MaintenanceOrder, Organization, Project, TestEvent)
+from ..models.documents import LIBRARY_ID, LIBRARY_TYPES
 from ..repositories import common as repo
 from ..schemas.dto import record_meta, sid
 from ..security.auth import ALL_DEPARTMENTS, PERM_EDIT_DOCUMENTS, department_scope, require_department_access
@@ -40,10 +41,27 @@ _ENTITIES = {
     "ORGANIZATION": (Organization, lambda e: None, lambda e: (e.code, e.name_en, e.name_ar)),
     "CONTRACT": (Contract, lambda e: None, lambda e: (e.code, e.title_en, e.title_ar)),
     "CAPABILITY_REQUIREMENT": (CapabilityRequirement, lambda e: e.department_id, lambda e: (e.code, e.name_en, e.name_ar)),
+    "GOLDEN_SAMPLE_TRIAL": (GoldenSampleTrial, lambda e: None, lambda e: (e.code, e.title_en, e.title_ar)),
+    # The culture library is not a record (entity id LIBRARY_ID); seen by everyone, like the capability models.
+    "LIBRARY": (None, lambda e: None, lambda e: ("LIB", "Culture library", "مكتبة الثقافة")),
+}
+_LIBRARY_LINKS = {"REFERENCE": "/culture/references", "USER_GUIDE": "/culture/guide",
+                  "ACQUISITION_PLAN": "/culture/acquisition"}
+
+# Scans with a fixed place on a record's page: entity type -> {document type: (English, Arabic) title}. One document
+# per record and slot; each new scan is a new version of it (attach()).
+SLOTS = {
+    "GOLDEN_SAMPLE_TRIAL": {"GOLDEN_TRIAL": ("Trial", "التجربة"),
+                            "DIRECTIVE_LETTER": ("Higher-level directive letter", "كتاب توجيه المستوى الأعلى"),
+                            "OFFICIAL_TRIAL_FORM": ("Official trial form", "نموذج التجربة الرسمي")},
+    "MAINTENANCE_ORDER": {"INVESTIGATION": ("Investigation board", "هيئة التحقيق")},
+    "TEST_EVENT": {"CAPABILITY_DEED": ("Capability deed", "سند القدرة"),
+                   "LIVE_DEMO_REPORT": ("Live demonstration report for inspection",
+                                        "تقرير نموذج العرض الحي لغرض التفتيش")},
 }
 _LINKS = {"CAPABILITY_MODEL": "/models/{id}", "ASSET": "/assets/{id}", "PROJECT": "/projects/{id}",
           "TEST_EVENT": "/testing", "MAINTENANCE_ORDER": "/maintenance", "ORGANIZATION": "/settings",
-          "CONTRACT": "/settings", "CAPABILITY_REQUIREMENT": "/requirements/{id}"}
+          "CONTRACT": "/settings", "CAPABILITY_REQUIREMENT": "/requirements/{id}", "GOLDEN_SAMPLE_TRIAL": "/golden-samples"}
 
 
 def sniff(data: bytes, file_name: str) -> str:
@@ -80,6 +98,10 @@ def _target(entity_type: str, entity_id: int):
     if spec is None:
         raise ValidationFailed.field("entityType", "Documents cannot be attached to that kind of record.")
     model, dept_of, label = spec
+    if model is None:  # the culture library
+        if entity_id != LIBRARY_ID:
+            raise ValidationFailed.field("entityId", "The record was not found.")
+        return _Library(), None, label(None)
     entity = context.session().get(model, entity_id)
     if entity is None:
         raise ValidationFailed.field("entityId", "The record was not found.")
@@ -94,14 +116,16 @@ def _versions(doc: Document) -> list[DocumentVersion]:
 def document_dto(doc: Document, with_versions: bool = False) -> dict:
     session = context.session()
     model = _ENTITIES[doc.entity_type][0]
-    entity = session.get(model, doc.entity_id)
+    entity = session.get(model, doc.entity_id) if model is not None else _Library()
     code, en, ar = _ENTITIES[doc.entity_type][2](entity) if entity else ("?", "?", "?")
+    link = (_LIBRARY_LINKS.get(doc.doc_type, "/culture/references") if model is None
+            else _LINKS[doc.entity_type].format(id=doc.entity_id))
     latest = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == doc.id,
                                                           DocumentVersion.version_no == doc.current_version))
     uploader = session.get(AppUser, latest.uploaded_by) if latest else None
     out = {"id": sid(doc.id), "code": doc.code, "titleEn": doc.title_en, "titleAr": doc.title_ar, "docType": doc.doc_type,
            "linked": {"type": doc.entity_type, "id": sid(doc.entity_id), "code": code, "nameEn": en, "nameAr": ar,
-                      "link": _LINKS[doc.entity_type].format(id=doc.entity_id)},
+                      "link": link},
            "department": lk.ref_id(Department, doc.department_id), "currentVersion": doc.current_version,
            "latest": {"fileName": latest.file_name, "contentType": latest.content_type, "sizeBytes": latest.size_bytes,
                       "uploadedAt": iso_utc(latest.uploaded_at), "uploadedBy": uploader.display_name if uploader else None}
@@ -166,7 +190,15 @@ def _clean_name(name: str) -> str:
     return name[:200]
 
 
+class _Library:
+    """Stands for the culture library where a record would be."""
+    id = LIBRARY_ID
+
+
 def create_document(actor, data) -> dict:
+    if (data.entity_type == "LIBRARY") != (data.doc_type in LIBRARY_TYPES):
+        raise ValidationFailed.field("docType", "References, user guides and acquisition plans belong in the culture "
+                                                "library, and only there.")
     entity, department_id, _ = _target(data.entity_type, data.entity_id)
     if department_id is not None:
         require_department_access(actor, department_id, "The record was not found.")
@@ -179,8 +211,13 @@ def create_document(actor, data) -> dict:
 
 def add_version(actor, document_id: int, file_name: str, data: bytes, note: str | None) -> dict:
     doc = _load(actor, document_id, for_update=True)
-    from ..security.auth import require_edit
-    require_edit(actor, PERM_EDIT_DOCUMENTS, doc.department_id)
+    from ..security.auth import require_change, require_edit
+    # The first file completes a document being added; a later one replaces what everyone sees, so it is a change
+    # (records.change: a role that only adds and views cannot replace a file).
+    if doc.current_version == 0:
+        require_edit(actor, PERM_EDIT_DOCUMENTS, doc.department_id)
+    else:
+        require_change(actor, PERM_EDIT_DOCUMENTS, doc.department_id)
     if not data:
         raise ValidationFailed.field("file", "The file is empty.")
     if len(data) > MAX_BYTES:
@@ -229,3 +266,55 @@ def archive_document(actor, document_id: int, archived: bool, version, reason) -
     doc = _load(actor, document_id, for_update=True)
     crud.set_archived(actor, doc, archived, PERM_EDIT_DOCUMENTS, version, reason)
     return get_document(actor, doc.id)
+
+
+def _check_file(file_name: str, data: bytes) -> None:
+    if not data:
+        raise ValidationFailed.field("file", "The file is empty.")
+    if len(data) > MAX_BYTES:
+        raise PayloadTooLarge(f"Files are limited to {MAX_BYTES // (1024 * 1024)} MB.")
+    sniff(data, _clean_name(file_name))
+
+
+def attach(actor, entity_type: str, entity_id: int, doc_type: str, file_name: str, data: bytes,
+           note: str | None) -> dict:
+    """Put a scan in a record's slot (SLOTS): the slot's document is created with the first scan, and every later scan
+    is a new version of it. One transaction: no empty document is left behind if the file is refused."""
+    titles = SLOTS.get(entity_type, {}).get(doc_type)
+    if titles is None:
+        raise ValidationFailed.field("docType", "That kind of attachment does not belong to that kind of record.")
+    entity, department_id, (code, _, _) = _target(entity_type, entity_id)
+    if department_id is not None:
+        require_department_access(actor, department_id, "The record was not found.")
+    from ..security.auth import require_edit
+    require_edit(actor, PERM_EDIT_DOCUMENTS, department_id)
+    _check_file(file_name, data)
+    doc = context.session().scalar(select(Document).where(
+        Document.entity_type == entity_type, Document.entity_id == entity.id, Document.doc_type == doc_type,
+        Document.archived_at.is_(None)).order_by(Document.id))
+    if doc is None:
+        from .project_service import next_code
+        doc = Document(code=next_code(Document, "DOC"), title_en=f"{titles[0]} · {code}"[:200],
+                       title_ar=f"{titles[1]} · {code}"[:200], doc_type=doc_type, entity_type=entity_type,
+                       entity_id=entity.id, department_id=department_id, current_version=0)
+        crud.create(actor, doc, PERM_EDIT_DOCUMENTS, department_id, commit=False)
+    return add_version(actor, doc.id, file_name, data, note)
+
+
+def slot_status(entity_type: str, entity_ids: list[int]) -> dict:
+    """entity id -> {document type: {id, fileName, version, uploadedAt}} for the slots that hold a file."""
+    if not entity_ids:
+        return {}
+    rows = context.session().execute(
+        select(Document, DocumentVersion)
+        .join(DocumentVersion, (DocumentVersion.document_id == Document.id)
+              & (DocumentVersion.version_no == Document.current_version))
+        .where(Document.entity_type == entity_type, Document.entity_id.in_(entity_ids),
+               Document.doc_type.in_(list(SLOTS.get(entity_type, {}))), Document.archived_at.is_(None))
+        .order_by(Document.id)).all()
+    out: dict = {}
+    for doc, version in rows:
+        out.setdefault(doc.entity_id, {}).setdefault(doc.doc_type, {
+            "id": sid(doc.id), "fileName": version.file_name, "version": doc.current_version,
+            "uploadedAt": iso_utc(version.uploaded_at)})
+    return out

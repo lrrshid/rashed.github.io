@@ -5,17 +5,16 @@ meaningful whenever the demo is (re)built.
 """
 from __future__ import annotations
 
+# One account per role of the structure (reference_data.ROLES); the first is the administrator who seeds the rest.
 # username, display name, role, department codes (DEPARTMENT-scoped roles only)
 MOCK_USERS = (
     ("mock.admin", "Mock System Administrator", "SYS_ADMIN", ()),
-    ("mock.exec", "Mock Executive", "EXECUTIVE", ()),
-    ("mock.head", "Mock Head of Group 2", "DEPT_HEAD", ("G2",)),
-    ("mock.capability", "Mock Capability Manager", "CAPABILITY_MGR", ()),
+    ("mock.commander", "Mock Commander", "COMMANDER", ()),
+    ("mock.capdev", "Mock Head of Capability Development", "HEAD_CAP_DEV", ()),
+    ("mock.security", "Mock Head of Security Systems", "HEAD_SECURITY", ()),
+    ("mock.unmanned", "Mock Head of Unmanned Systems", "HEAD_UNMANNED", ()),
     ("mock.pm", "Mock Project Manager", "PROJECT_MGR", ()),
-    ("mock.maint", "Mock Maintenance Lead", "MAINTENANCE", ()),
-    ("mock.test", "Mock Test Lead", "TESTING", ()),
-    ("mock.analyst", "Mock Analyst", "ANALYST", ()),
-    ("mock.viewer", "Mock Viewer", "VIEWER", ()),
+    ("mock.user", "Mock User", "USER", ()),
 )
 
 SITES = (

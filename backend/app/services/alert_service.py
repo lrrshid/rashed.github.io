@@ -13,24 +13,28 @@ from ..models import (AlertAck, AlertRule, Asset, CapabilityModel, Contract, Iss
 from ..security.auth import ALL_DEPARTMENTS, department_scope, require_admin
 from . import audit_service, context, metrics_service, project_health, settings_service
 
+# The roles of the organisation's structure (reference_data.ROLES) an alert goes to by default: the commander gets the
+# strategic ones, the three section heads what concerns their work, the project manager the project ones and the user
+# the field ones (maintenance, tests, spare parts, readiness). Changed in Settings > Alert rules.
+_HEADS = "HEAD_CAP_DEV,HEAD_SECURITY,HEAD_UNMANNED"
 # type -> (severity, default roles, default days ahead)
 TYPES = {
-    "PROJECT_DELAYED": ("HIGH", "SYS_ADMIN,EXECUTIVE,DEPT_HEAD,PROJECT_MGR", None),
-    "MILESTONE_OVERDUE": ("HIGH", "SYS_ADMIN,DEPT_HEAD,PROJECT_MGR", None),
+    "PROJECT_DELAYED": ("HIGH", f"SYS_ADMIN,COMMANDER,{_HEADS},PROJECT_MGR", None),
+    "MILESTONE_OVERDUE": ("HIGH", f"SYS_ADMIN,{_HEADS},PROJECT_MGR", None),
     "MILESTONE_DUE": ("INFO", "SYS_ADMIN,PROJECT_MGR", 14),
-    "RISK_CRITICAL": ("CRITICAL", "SYS_ADMIN,EXECUTIVE,DEPT_HEAD,PROJECT_MGR", None),
+    "RISK_CRITICAL": ("CRITICAL", f"SYS_ADMIN,COMMANDER,{_HEADS},PROJECT_MGR", None),
     "MITIGATION_OVERDUE": ("HIGH", "SYS_ADMIN,PROJECT_MGR", None),
-    "ISSUE_ESCALATED": ("HIGH", "SYS_ADMIN,EXECUTIVE,DEPT_HEAD,PROJECT_MGR", None),
+    "ISSUE_ESCALATED": ("HIGH", f"SYS_ADMIN,COMMANDER,{_HEADS},PROJECT_MGR", None),
     "ISSUE_OVERDUE": ("MEDIUM", "SYS_ADMIN,PROJECT_MGR", None),
-    "MAINTENANCE_OVERDUE": ("HIGH", "SYS_ADMIN,DEPT_HEAD,MAINTENANCE", None),
-    "SPARE_PARTS_SHORTAGE": ("MEDIUM", "SYS_ADMIN,MAINTENANCE", None),
-    "WARRANTY_EXPIRING": ("MEDIUM", "SYS_ADMIN,CAPABILITY_MGR,MAINTENANCE", 60),
-    "CONTRACT_EXPIRING": ("MEDIUM", "SYS_ADMIN,CAPABILITY_MGR,PROJECT_MGR", 90),
-    "CRITICAL_GAP": ("CRITICAL", "SYS_ADMIN,EXECUTIVE,DEPT_HEAD,CAPABILITY_MGR", None),
-    "BUDGET_OVERRUN": ("HIGH", "SYS_ADMIN,EXECUTIVE,PROJECT_MGR", None),
-    "TEST_FAILED": ("HIGH", "SYS_ADMIN,TESTING,PROJECT_MGR,CAPABILITY_MGR", 90),
-    "TEST_UPCOMING": ("INFO", "SYS_ADMIN,TESTING", 30),
-    "ASSET_NOT_READY": ("MEDIUM", "SYS_ADMIN,DEPT_HEAD,MAINTENANCE", None),
+    "MAINTENANCE_OVERDUE": ("HIGH", f"SYS_ADMIN,{_HEADS},USER", None),
+    "SPARE_PARTS_SHORTAGE": ("MEDIUM", "SYS_ADMIN,USER", None),
+    "WARRANTY_EXPIRING": ("MEDIUM", "SYS_ADMIN,HEAD_CAP_DEV,USER", 60),
+    "CONTRACT_EXPIRING": ("MEDIUM", "SYS_ADMIN,HEAD_CAP_DEV,PROJECT_MGR", 90),
+    "CRITICAL_GAP": ("CRITICAL", f"SYS_ADMIN,COMMANDER,{_HEADS}", None),
+    "BUDGET_OVERRUN": ("HIGH", "SYS_ADMIN,COMMANDER,HEAD_CAP_DEV,PROJECT_MGR", None),
+    "TEST_FAILED": ("HIGH", "SYS_ADMIN,HEAD_CAP_DEV,PROJECT_MGR,USER", 90),
+    "TEST_UPCOMING": ("INFO", "SYS_ADMIN,USER", 30),
+    "ASSET_NOT_READY": ("MEDIUM", f"SYS_ADMIN,{_HEADS},USER", None),
 }
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "INFO": 3}
 

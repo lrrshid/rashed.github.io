@@ -246,26 +246,10 @@
   background: #fff; border-color: var(--gold); }
 :root:not([data-mode="dark"]) .login-card .input:-webkit-autofill { -webkit-text-fill-color: #1c252d; box-shadow: 0 0 0 60px #fff inset; caret-color: #1c252d; }
 :root:not([data-mode="dark"]) .login-field-icon { stroke: var(--gold-600); }
-:root:not([data-mode="dark"]) .login-card .mock-hint { color: #5b646b; background: rgba(20, 32, 41, .04); border-color: #e6dfcf; border-inline-start-color: var(--gold); }
-:root:not([data-mode="dark"]) .demo-title { color: var(--gold-600); }
-:root:not([data-mode="dark"]) .demo-chip { color: #1c252d; background: #fff; border-color: #e3dccb; }
-:root:not([data-mode="dark"]) .demo-chip.gold { color: var(--gold-600); border-color: color-mix(in srgb, var(--gold) 70%, transparent); }
 :root:not([data-mode="dark"]) .login-card .login-lang .btn { color: #3a444c; border-color: #d9d2c3; }
 :root:not([data-mode="dark"]) .login-card .login-lang .btn:hover { color: var(--gold-600); border-color: var(--gold); }
 @keyframes login-shine { 0%, 55% { transform: translateX(0); } 100% { transform: translateX(450%); } }
 .login-card .error-box { border-radius: 12px; }
-.login-card .mock-hint {
-  margin-top: 22px; padding: 14px 16px; border-radius: 14px; font-size: .82rem; color: rgba(244, 239, 226, .75);
-  background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .08); border-inline-start: 3px solid var(--gold);
-}
-.demo-title { color: var(--gold); font-weight: 700; margin-bottom: 10px; }
-.demo-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.demo-chip {
-  display: inline-block; white-space: nowrap; padding: 3px 9px; border-radius: 999px; color: #f4efe2;
-  font: 600 .76rem ui-monospace, Consolas, monospace; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14);
-}
-.demo-chip.gold { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 65%, transparent); }
-.demo-pass { margin-top: 10px; display: flex; align-items: center; gap: 6px; }
 .login-card .login-lang { margin-top: 18px; text-align: center; }
 .login-card .login-lang .btn { color: rgba(244, 239, 226, .85); border: 1px solid rgba(255, 255, 255, .2); border-radius: 999px; padding: 5px 18px; }
 .login-card .login-lang .btn:hover { color: var(--gold); border-color: var(--gold); background: transparent; }

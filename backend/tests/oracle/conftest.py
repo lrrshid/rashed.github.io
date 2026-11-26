@@ -2,7 +2,7 @@
 (ORACLE_DSN, ORACLE_SYSTEM_USER, ORACLE_SYSTEM_PASSWORD; git-ignored) and sqlplus on PATH.
 
 It creates two throwaway accounts with random passwords: CPC_T_OWNER (owns the tables; runs db/oracle/V*.sql with
-sqlplus) and CPC_T_APP (the runtime identity, CREATE SESSION plus exactly the grants of docs/oracle-migration.md),
+sqlplus) and CPC_T_APP (the runtime identity, CREATE SESSION plus exactly the grants of db/oracle/runtime-grants.sql),
 runs the application as CPC_T_APP with ORACLE_SCHEMA=CPC_T_OWNER, and drops both accounts at the end. Nothing else
 in the database is touched. Passwords are never printed."""
 from __future__ import annotations
@@ -44,10 +44,10 @@ def _drop(cur, name):
 
 
 def _grants() -> list[str]:
-    text = (PROJECT / "docs" / "oracle-migration.md").read_text(encoding="utf-8")
+    text = (PROJECT / "db" / "oracle" / "runtime-grants.sql").read_text(encoding="utf-8")
     statements = [re.sub(r"\s+--.*$", "", line).rstrip(";").replace("CPC_APP", APP_USER)
                   for line in text.splitlines() if line.startswith("GRANT ") and " ON " in line]
-    assert len(statements) >= 40, "the grant list in docs/oracle-migration.md looks incomplete"
+    assert len(statements) >= 40, "the grant list in db/oracle/runtime-grants.sql looks incomplete"
     return statements
 
 
@@ -106,13 +106,16 @@ def oracle_app(oracle_accounts, tmp_path_factory):
     from app import create_app
     from app.core.config import load_settings
 
+    from app.core.secretbox import new_key_text
+
     os.environ.update({"ORACLE_DSN": oracle_accounts["dsn"], "ORACLE_USER": APP_USER,
-                       "ORACLE_PASSWORD": oracle_accounts["app_password"], "ORACLE_SCHEMA": OWNER})
+                       "ORACLE_PASSWORD": oracle_accounts["app_password"], "ORACLE_SCHEMA": OWNER,
+                       "SETTINGS_KEY": new_key_text()})  # the oracle profile needs one (a throwaway key here)
     try:
         settings = load_settings("oracle", {"cookie_secure": False, "log_level": "WARNING", "auth_mode": "local",
                                             "reports_dir": str(tmp_path_factory.mktemp("reports"))})
     finally:
-        for key in ("ORACLE_DSN", "ORACLE_USER", "ORACLE_PASSWORD", "ORACLE_SCHEMA"):
+        for key in ("ORACLE_DSN", "ORACLE_USER", "ORACLE_PASSWORD", "ORACLE_SCHEMA", "SETTINGS_KEY"):
             os.environ.pop(key, None)
     app = create_app(settings)  # runs check_schema against the owner's schema
     app.config["TESTING"] = True

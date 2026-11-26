@@ -50,7 +50,13 @@ export function can(permission) {
 }
 // The real role may administer (the preview never may).
 export function isAdmin() { return can('admin') && !state.viewAs; }
+// User tracking (tracking.view): the real role only, never in a role preview.
+export function canTrack() { return can('tracking.view') && !state.viewAs; }
+// Adding a record of a kind (edit.assets...). The server checks again (security/auth.py require_edit).
 export function canEdit(permission) { return can(permission) && !state.viewAs; }
+// Changing, archiving or restoring a record that exists also needs records.change: a role without it (the project
+// manager, the user) adds and views only (auth.require_change, 403 ADD_ONLY).
+export function canChange(permission) { return canEdit(permission) && can('records.change'); }
 
 export function lookupList(name) { return (state.lookups && state.lookups[name]) || []; }
 export function findById(list, id) { return lookupList(list).find((e) => e.id === String(id)) || null; }

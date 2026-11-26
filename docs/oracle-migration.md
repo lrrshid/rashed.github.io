@@ -13,9 +13,13 @@ The app runs on SQLite (`APP_PROFILE=demo`) with the brochure-shaped demo data, 
 | `V003__documents_alerts.sql` | `V005__documents_alerts.sql` | versioned documents (append-only versions), alert rules and acknowledgements |
 | `V004__reports.sql` | `V006__reports.sql` | custom report templates, report schedules, report run log |
 | `V005__org_units.sql` | `V007__org_units.sql` | directorates and sections that conduct tests (`org_unit`), `test_event.unit_id` |
+| `V006__golden_samples_attachments.sql` | `V008__golden_samples_attachments.sql` | golden-sample trials, the reason a capability entered maintenance, new kinds of attached scans (SQLite rebuilds `document` to widen its checks) |
+| `V007__settings_connections.sql` | `V009__settings_connections.sql` | Settings > connections: the directory and database connections, their revisions and tests, trusted certificates, approved destinations, the sign-in method (`docs/SETTINGS.md`) |
+| `V008__role_levels_and_change.sql` | `V010__role_levels_and_change.sql` | the level of each role in the organisation's structure (`app_role.tier`) and the permission `records.change` (changing and archiving, apart from adding); every role holding an `edit.*` permission is given it, so existing roles keep working (no new table, no new grant) |
+| `V009__action_log.sql` | `V011__action_log.sql` | user tracking: `action_log` (every action of every person, carried out or refused; append-only, with its trigger) and the permission `tracking.view`, given to every role holding `admin`; runtime grant `SELECT, INSERT ON action_log` |
 
 Rule: a schema change is a **new numbered script in both folders** (never edit an applied script), plus its runtime
-grant in section 3 below.
+grant line in `db/oracle/runtime-grants.sql` (section 3).
 
 ## 1. Two database accounts
 
@@ -36,6 +40,10 @@ SQL> @db/oracle/V004__testing_maintenance_ai.sql
 SQL> @db/oracle/V005__documents_alerts.sql
 SQL> @db/oracle/V006__reports.sql
 SQL> @db/oracle/V007__org_units.sql
+SQL> @db/oracle/V008__golden_samples_attachments.sql
+SQL> @db/oracle/V009__settings_connections.sql
+SQL> @db/oracle/V010__role_levels_and_change.sql
+SQL> @db/oracle/V011__action_log.sql
 ```
 
 Oracle has no `SCHEMA_VERSION` table: record which `V…` scripts were applied in the DBA's change log. At start-up
@@ -44,78 +52,37 @@ with a clear message if one is missing.
 
 ## 3. Runtime grants (as the owner)
 
-Business records are never deleted (they are archived), so the runtime account gets no DELETE on them.
+Business records are never deleted (they are archived), so the runtime account gets no DELETE on them. The
+grants are in **`db/oracle/runtime-grants.sql`** (one list: the DBA runs it, Settings > Database checks a new
+database against it, and the Oracle tests apply it). It names the runtime account `CPC_APP`; change that first
+if yours is called differently. Run it as the owner after the scripts:
 
-```sql
--- every business and list table: read, add, change
-GRANT SELECT, INSERT, UPDATE ON app_role TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON app_user TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE, DELETE ON role_permission TO CPC_APP;   -- a role's permission list is edited
-GRANT SELECT, INSERT, UPDATE, DELETE ON user_department TO CPC_APP;   -- a user's departments are edited
-GRANT SELECT, INSERT, UPDATE, DELETE ON app_session TO CPC_APP;       -- sign-out and expiry delete sessions
-GRANT SELECT, INSERT ON audit_event TO CPC_APP;                       -- append-only
-GRANT SELECT, INSERT, UPDATE ON app_setting TO CPC_APP;
-GRANT SELECT, INSERT, DELETE ON saved_view TO CPC_APP;                -- personal views are deleted by their owner
-GRANT SELECT, INSERT, UPDATE ON department TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON capability_category TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON site TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON organization TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON status_def TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON project_type TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON workflow_stage TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON spec_field TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON capability_requirement TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE, DELETE ON requirement_model TO CPC_APP; -- link rows
-GRANT SELECT, INSERT, UPDATE ON capability_model TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON contract TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON asset TO CPC_APP;
-GRANT SELECT, INSERT ON asset_status_history TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON project TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE, DELETE ON project_requirement TO CPC_APP; -- link rows
-GRANT SELECT, INSERT, UPDATE, DELETE ON project_model TO CPC_APP;       -- link rows
-GRANT SELECT, INSERT, UPDATE ON project_health_note TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON milestone TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON risk TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON issue TO CPC_APP;
-GRANT SELECT, INSERT, DELETE ON metric_snapshot TO CPC_APP;           -- today's snapshot is replaced
--- V004
-GRANT SELECT, INSERT, UPDATE ON test_event TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON maintenance_order TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON ai_technology TO CPC_APP;
-GRANT SELECT, INSERT, DELETE ON model_ai_tech TO CPC_APP;              -- a model's AI functions are edited
-GRANT SELECT, INSERT, UPDATE ON ai_level_criterion TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON development_opportunity TO CPC_APP;
--- V005
-GRANT SELECT, INSERT, UPDATE ON document TO CPC_APP;
-GRANT SELECT, INSERT ON document_version TO CPC_APP;                 -- append-only
-GRANT SELECT, INSERT, UPDATE ON alert_rule TO CPC_APP;
-GRANT SELECT, INSERT ON alert_ack TO CPC_APP;
--- V006
-GRANT SELECT, INSERT, UPDATE ON report_template TO CPC_APP;
-GRANT SELECT, INSERT, UPDATE ON report_schedule TO CPC_APP;
-GRANT SELECT, INSERT ON report_run TO CPC_APP;
--- V007
-GRANT SELECT, INSERT, UPDATE ON org_unit TO CPC_APP;
--- every sequence
-BEGIN
-  FOR s IN (SELECT sequence_name FROM user_sequences) LOOP
-    EXECUTE IMMEDIATE 'GRANT SELECT ON ' || s.sequence_name || ' TO CPC_APP';
-  END LOOP;
-END;
-/
 ```
+SQL> @db/oracle/runtime-grants.sql
+```
+
+A new table gets its line in that file in the same change as its `V0xx` script (V009: the Settings connection
+tables, `setting_*`, `egress_rule`, `connection_setting`, `process_heartbeat`).
 
 Grant `SELECT`, not `READ`: `READ` does not allow the `SELECT … FOR UPDATE` row locks the app takes before changes.
 
-## 4. Reference data and the first administrator
+## 4. A clean start: the first administrator and the standard lists
 
-The demo data is never written to Oracle. On a new Oracle schema:
+The Oracle database **starts clean** (owner, 24 Nov 2026): the demo data (the fictional records and the `mock.*`
+accounts that made them) is never written to it, never copied to it, and the app **refuses to start** on an Oracle
+database that holds it. Do not copy the demo database. On the new, empty schema (scripts and grants only), with the
+app's server file pointing at it:
 
 ```
 cd backend
-flask --app wsgi create-user --username U12345 --role SYS_ADMIN      (roles are created first automatically)
-flask --app wsgi seed-reference --actor U12345                       (departments, categories, statuses, workflows, spec fields)
+flask --app wsgi setup-database --admin U12345 --display-name "Full Name"
 ```
+
+It creates the roles, the first system administrator (a hidden password prompt) and the standard lists (groups,
+capability types, statuses, workflows, specification fields, directorates and sections), and refuses a database that
+already has accounts. (The two older steps still work: `create-user --role SYS_ADMIN`, then `seed-reference --actor`.)
+The website's **Settings > Database** tests a new database before the move, with read-only checks, and refuses one
+that holds the demo data (`docs/SETTINGS.md`).
 
 With `AUTH_MODE=ldap` (see `docs/LDAP_SETUP.txt`) no password is asked: the person signs in with their Windows
 password. The emergency account is set with `flask --app wsgi set-break-glass-password` (`BREAK_GLASS_USERNAME` in

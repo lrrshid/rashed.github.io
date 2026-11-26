@@ -32,6 +32,12 @@ def reset_write_intent(token: contextvars.Token) -> None:
     _write_intent.reset(token)
 
 
+def write_intended() -> bool:
+    """Whether the current context means to write (a mutating request, or inside write_intent()): on SQLite it may
+    hold the database's write lock already."""
+    return bool(_write_intent.get())
+
+
 @contextmanager
 def write_intent() -> Iterator[None]:
     token = _write_intent.set(True)

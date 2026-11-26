@@ -1,7 +1,7 @@
 // Issues management: tracked separately from risks, with severity, owner, target date and escalation.
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit, state } from '../lib/state.js';
+import { canChange, canEdit, state } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatDate } from '../lib/format.js';
 import { dataTable, errorBox, kpiTile, loadingBox, priorityBadge, statusBadge } from '../components/ui.js';
@@ -35,6 +35,7 @@ export async function render(container, ctx) {
       [d, projects] = await Promise.all([api.get('/issues', { department: state.department || undefined }), api.get('/projects', { view: 'ACTIVE' })]);
     } catch (error) { replace(body, errorBox(error, load)); return; }
     const editable = canEdit('edit.risks');
+    const changeable = canChange('edit.risks');
     const context = { projects: projects.items };
     replace(head, h('div', {}, h('h1', { tabindex: '-1', text: t('issues.title') }), h('div', { class: 'page-sub', text: t('issues.subtitle') })),
       editable ? h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openIssueForm(null, context, load) }, icon('plus'), t('issues.add')) : null);
@@ -45,7 +46,7 @@ export async function render(container, ctx) {
       h('div', { class: 'kpis' }, Object.entries(d.kpis).map(([k, v]) => kpiTile({ label: t(`issues.kpi.${k}`), value: formatCount(v),
         tone: ['critical', 'escalated', 'overdue'].includes(k) && v ? 'red' : undefined, onClick: () => { filter = filter === k ? null : k; ctx.setQuery({ filter: filter || undefined }); load(); } }))),
       h('div', { class: 'section-label' }),
-      dataTable(issueColumns({ onEdit: editable ? (i) => openIssueForm(i, context, load) : null }), items));
+      dataTable(issueColumns({ onEdit: changeable ? (i) => openIssueForm(i, context, load) : null }), items));
   }
   await load();
 }

@@ -10,7 +10,7 @@ from ..exceptions import ValidationFailed
 from ..models import Asset, CapabilityModel, Department, OrgUnit, Project, Site, TestEvent
 from ..schemas.dto import record_meta, sid
 from ..security.auth import ALL_DEPARTMENTS, PERM_EDIT_TESTING, department_scope
-from . import context, crud, lookup_service as lk
+from . import context, crud, document_service, lookup_service as lk
 
 DONE = ("PASSED", "CONDITIONAL", "FAILED")
 
@@ -22,7 +22,7 @@ def _scoped(actor, query):
     return query
 
 
-def test_dto(e: TestEvent) -> dict:
+def test_dto(e: TestEvent, files: dict | None = None) -> dict:
     project = context.session().get(Project, e.project_id) if e.project_id else None
     asset = context.session().get(Asset, e.asset_id) if e.asset_id else None
     return {"id": sid(e.id), "code": e.code, "titleEn": e.title_en, "titleAr": e.title_ar,
@@ -33,7 +33,9 @@ def test_dto(e: TestEvent) -> dict:
             "department": lk.ref_id(Department, e.department_id), "site": lk.ref_id(Site, e.site_id),
             "unit": lk.ref_id(OrgUnit, e.unit_id),
             "testType": e.test_type, "testDate": e.test_date.isoformat(), "status": e.status_code, "score": e.score,
-            "resultEn": e.result_en, "resultAr": e.result_ar, **record_meta(e)}
+            "resultEn": e.result_en, "resultAr": e.result_ar,
+            "attachments": {slot: (files or {}).get(slot) for slot in document_service.SLOTS["TEST_EVENT"]},
+            **record_meta(e)}
 
 
 def unit_and_sections(unit_ids: list[int]) -> list[int]:
@@ -56,6 +58,7 @@ def list_tests(actor, f: dict) -> dict:
         query = query.where(TestEvent.test_type == f["type"])
     rows = list(context.session().scalars(query.order_by(TestEvent.test_date.desc(), TestEvent.code)))
     today = context.today()
+    files = document_service.slot_status("TEST_EVENT", [e.id for e in rows])
     status = Counter(e.status_code for e in rows)
     done = sum(status[s] for s in DONE)
     by_model = defaultdict(Counter)
@@ -63,7 +66,7 @@ def list_tests(actor, f: dict) -> dict:
         if e.status_code in DONE:
             by_model[e.model_id][e.status_code] += 1
     return {
-        "items": [test_dto(e) for e in rows],
+        "items": [test_dto(e, files.get(e.id)) for e in rows],
         "kpis": {"total": len(rows), "internal": sum(1 for e in rows if e.test_type == "INTERNAL"),
                  "external": sum(1 for e in rows if e.test_type == "EXTERNAL"),
                  "planned": status["PLANNED"], "inProgress": status["IN_PROGRESS"] + status["AWAITING_RESULT"],
@@ -133,4 +136,4 @@ def save_test(actor, data, test_id: int | None = None) -> dict:
         _validate(changes, e)
         crud.update(actor, e, changes, PERM_EDIT_TESTING, data.version, data.reason,
                     department_ids=(e.department_id, changes.get("department_id", e.department_id)))
-    return test_dto(e)
+    return test_dto(e, document_service.slot_status("TEST_EVENT", [e.id]).get(e.id))

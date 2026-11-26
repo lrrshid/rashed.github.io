@@ -3,7 +3,7 @@
 import { api } from './api.js';
 import { h, icon, replace } from './lib/dom.js';
 import { language, setLanguage } from './lib/i18n.js';
-import { departmentsInScope, isAdmin, lookupList, setDepartment, setViewAs, state, user } from './lib/state.js';
+import { canTrack, departmentsInScope, isAdmin, lookupList, setDepartment, setViewAs, state } from './lib/state.js';
 import { name, t } from './labels.js';
 import { mode, setMode } from './lib/theme.js';
 import { paletteButton } from './components/palette.js';
@@ -13,23 +13,28 @@ import { navigate } from './router.js';
 function navModel() {
   return [
     ['home', '/', 'home'],
+    ['culture', null, 'book', [['references', '/culture/references'], ['userGuide', '/culture/guide'], ['acquisitionPlan', '/culture/acquisition']]],
     ['capabilities', null, 'layers', [
       ['allCapabilities', '/capabilities'],
       ...lookupList('categories').filter((c) => !c.archived).map((c) => [`cat:${c.code}`, `/capabilities/category/${c.code}`, null, null, `${c.code} · ${name(c)}`]),
       ['completion', '/completion'], ['gaps', '/gaps'], ['aiCapabilities', '/ai'], ['development', '/development'],
+      ['goldenSamples', '/golden-samples'],
     ]],
     ['projects', null, 'briefcase', [
       ['allProjects', '/projects'], ['activeProjects', '/projects?view=active'], ['delayedProjects', '/projects?view=delayed'],
       ['timeline', '/timeline'], ['gantt', '/gantt'], ['milestones', '/milestones'], ['risks', '/risks'], ['issues', '/issues'],
     ]],
     ['testing', '/testing', 'flask'],
-    ['maintenance', '/maintenance', 'wrench'],
+    ['maintenanceGroup', null, 'wrench', [['maintenance', '/maintenance'], ['capabilityMaintenance', '/maintenance/capability']]],
     ['decision', '/decision', 'compass'],
     ['reports', '/reports', 'chart'],
     ['documents', '/documents', 'folder'],
     ['alerts', '/alerts', 'bell'],
+    // User tracking: every action of every person, for the commander and the roles given it (the server refuses
+    // everyone else).
+    canTrack() ? ['tracking', '/user-tracking', 'users'] : null,
     ['settings', '/settings', 'settings'],
-  ];
+  ].filter(Boolean);
 }
 
 function isCurrent(path) {
@@ -43,7 +48,9 @@ export function renderSidebar(alertCount = 0) {
   const sidebar = document.getElementById('sidebar');
   const nav = h('nav', { class: 'nav' });
   for (const [key, path, iconName, children] of navModel()) {
-    if (key === 'settings' && !isAdmin() && !(user() && user().permissions.includes('view'))) continue;
+    // The whole Settings page is for system administrators (the server refuses everyone else): no menu item that
+    // only leads to "your role does not allow that".
+    if (key === 'settings' && !isAdmin()) continue;
     if (children) {
       const open = children.some(([, p]) => p && (window.location.pathname === p.split('?')[0] || window.location.pathname.startsWith(`${p.split('?')[0]}/`)));
       const details = h('details', { class: 'nav-group', open: open || undefined },

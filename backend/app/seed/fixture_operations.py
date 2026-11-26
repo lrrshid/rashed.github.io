@@ -98,6 +98,29 @@ MAINTENANCE = (
      48_000, 0, None),
 )
 
+# Why the capability entered maintenance (Maintenance > Capability maintenance): order code -> (English, Arabic).
+MAINTENANCE_REASONS = {
+    "MNT-001": ("Strong engine vibration reported by the crew after a reconnaissance sortie; the aircraft was grounded.",
+                "اهتزاز قوي في المحرك أبلغ عنه الطاقم بعد طلعة استطلاع، وأوقفت الطائرة عن الطيران."),
+    "MNT-002": ("Hard landing at the end of a training mission damaged the landing gear.",
+                "هبوط قاسٍ في نهاية مهمة تدريبية أدى إلى تضرر ترس الهبوط."),
+    "MNT-004": ("Loss of control link twice in one week; the investigation board traced it to the flight controller.",
+                "فقدان وصلة التحكم مرتين خلال أسبوع، وأرجعت هيئة التحقيق السبب إلى وحدة التحكم بالطيران."),
+    "MNT-009": ("Battery capacity fell below 60 % of rated during the readiness check.",
+                "انخفضت سعة البطارية إلى أقل من 60٪ من السعة المقررة أثناء فحص الجاهزية."),
+}
+
+# Golden-sample trials: code, model, English, Arabic, days from today, status, notes EN, notes AR
+GOLDEN_TRIALS = (
+    ("GS-001", "M001", "Golden sample acceptance flight", "طيران قبول العينة الذهبية", -45, "PASSED",
+     "Endurance and payload within specification.", "التحمل والحمولة ضمن المواصفات."),
+    ("GS-002", "M003", "Golden sample swarm coordination trial", "تجربة تنسيق السرب للعينة الذهبية", -20, "CONDITIONAL",
+     "Passed with a re-test of the data link range.", "نجاح مع إعادة اختبار مدى وصلة البيانات."),
+    ("GS-003", "M005", "Golden sample all-terrain mobility trial", "تجربة الحركة في جميع التضاريس للعينة الذهبية", -5,
+     "IN_PROGRESS", None, None),
+    ("GS-004", "M009", "Golden sample sea-state 4 trial", "تجربة العينة الذهبية في حالة البحر 4", 25, "PLANNED", None, None),
+)
+
 # code, model, type, English, Arabic, benefit EN, benefit AR, status, complexity, cost, months, priority, project
 DEVELOPMENT = (
     ("DEV-001", "M001", "COMMUNICATIONS", "Encrypted relay with network bonding", "ربط شبكي ومرحّل مشفر",

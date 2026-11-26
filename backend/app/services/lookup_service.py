@@ -86,6 +86,6 @@ def lookups() -> dict:
         "contracts": [{"id": sid(c.id), "code": c.code, "nameEn": c.title_en, "nameAr": c.title_ar,
                        "archived": c.archived_at is not None}
                       for c in _list(Contract, (Contract.code, Contract.id))],
-        "roles": [{"code": r.code, "nameEn": r.name_en, "nameAr": r.name_ar, "scope": r.scope}
+        "roles": [{"code": r.code, "nameEn": r.name_en, "nameAr": r.name_ar, "scope": r.scope, "tier": r.tier}
                   for r in context.session().scalars(select(AppRole).order_by(AppRole.sort_order, AppRole.id))],
     }

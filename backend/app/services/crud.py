@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from ..exceptions import Conflict, Duplicate, NotFound, ValidationFailed
 from ..models import StatusDef
 from ..repositories import common as repo
-from ..security.auth import require_department_access, require_edit
+from ..security.auth import require_change, require_department_access, require_edit
 from . import audit_service, context
 
 
@@ -68,9 +68,10 @@ def create(actor, entity, permission: str, department_id: int | None = None, rea
 def update(actor, entity, changes: dict, permission: str, version: int | None, reason: str | None = None,
            department_ids: tuple = (), commit: bool = True, extra_snapshot=None) -> bool:
     """Apply `changes` (attribute -> value). department_ids: departments the record is in before and after the change;
-    the user needs both in scope. Returns whether anything changed (nothing changed: no audit row, no version bump)."""
+    the user needs both in scope. A record permission (edit.*) also needs records.change (auth.require_change).
+    Returns whether anything changed (nothing changed: no audit row, no version bump)."""
     for department_id in department_ids or (getattr(entity, "department_id", None),):
-        require_edit(actor, permission, department_id)
+        require_change(actor, permission, department_id)
     if version is not None:
         context.check_version(entity, version)
     if getattr(entity, "archived_at", None) is not None:
@@ -98,7 +99,7 @@ def update(actor, entity, changes: dict, permission: str, version: int | None, r
 
 
 def set_archived(actor, entity, archived: bool, permission: str, version: int | None, reason: str | None = None):
-    require_edit(actor, permission, getattr(entity, "department_id", None))
+    require_change(actor, permission, getattr(entity, "department_id", None))
     if version is not None:
         context.check_version(entity, version)
     if (entity.archived_at is not None) == archived:

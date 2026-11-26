@@ -18,7 +18,8 @@ from sqlalchemy.orm import selectinload
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..core.database import reset_write_intent, set_write_intent, write_intent
-from ..exceptions import DirectoryUnavailable, Forbidden, NotFound, TooManyAttempts, Unauthenticated
+from ..exceptions import (DirectoryUnavailable, Forbidden, NotFound, TooManyAttempts, Unauthenticated,
+                          ValidationFailed)
 from ..extensions import db
 from ..models import AppSession, AppUser, AuditEvent
 from ..models import ROLE_SYS_ADMIN
@@ -52,7 +53,11 @@ def _digest(token: str) -> str:
 
 
 def _settings():
-    return current_app.config["SETTINGS"]
+    """The configuration in effect: the server files with what Settings > connections manages laid over them (the
+    sign-in method, the directory), so an applied change reaches sign-in without a restart."""
+    from ..services.connections.config_service import effective  # the services import this module
+
+    return effective()
 
 
 def _clock():
@@ -205,11 +210,59 @@ def login(username: str, password: str) -> tuple[AppUser, str, str]:
             token = secrets.token_urlsafe(32)
             csrf_token = csrf.new_token()
             session.add(AppSession(id=_digest(token), user_id=user.id, csrf_token=csrf_token, created_at=now, last_seen_at=now))
+            # The audit trail keeps who signed in and when (user tracking keeps every attempt); no values are recorded.
+            session.add(AuditEvent(actor_id=user.id, action="SIGN_IN", entity_type="APP_USER", entity_id=user.id,
+                                   occurred_at=now))
             session.commit()
             throttle.succeeded(ip, key, attempt)
             return user, token, csrf_token
     finally:
         session.close()
+
+
+REAUTH_MINUTES = 10
+
+
+def reauthenticate(user: AppUser, password: str) -> None:
+    """POST /connections/reauth: check `password` for the signed-in person, the same way sign-in would (the directory,
+    the break-glass account or a local password, by the method in effect), throttled like sign-in, and remember the
+    moment on this session. Sensitive Settings steps then need it within REAUTH_MINUTES (require_recent_reauth)."""
+    throttle = current_app.config["LOGIN_THROTTLE"]
+    ip = _client_ip()
+    key = f"reauth:{user.id}"
+    attempt = throttle.begin(ip, key)
+    if attempt is None:
+        raise TooManyAttempts("Too many attempts. Wait a few minutes and try again.")
+    if _settings().is_ldap:
+        try:
+            user_id, _name = _check_directory_sign_in(normalise_username(user.username), password, ip)
+        except DirectoryUnavailable:
+            throttle.cancel(ip, key, attempt)
+            raise
+    else:
+        user_id = _check_local_password(user.username, password)
+    if user_id != user.id:
+        log.warning("settings password check failed", extra={"fields": {"userId": user.id, "clientIp": ip}})
+        # 400 on the field, not 401: the page must not take a mistyped password for a lost session.
+        raise ValidationFailed.field("password", "The password is not right.")
+    token = request.cookies.get(COOKIE_NAME)
+    session = db.session()
+    row = session.get(AppSession, _digest(token)) if token else None
+    if row is None:
+        raise Unauthenticated("Please sign in again.")
+    row.reauth_at = _clock().now()
+    session.commit()
+    throttle.succeeded(ip, key, attempt)
+
+
+def require_recent_reauth() -> None:
+    """A sensitive Settings step (apply, switch on or off, delete, a secret, the sign-in method, a certificate, a
+    destination): the password must have been typed again on this session within REAUTH_MINUTES, else 403
+    REAUTH_REQUIRED (the page asks for it, then tries once more)."""
+    token = request.cookies.get(COOKIE_NAME)
+    row = db.session().get(AppSession, _digest(token)) if token else None
+    if row is None or row.reauth_at is None or _clock().now() - row.reauth_at > timedelta(minutes=REAUTH_MINUTES):
+        raise Forbidden("Type your password again to confirm this change.", code="REAUTH_REQUIRED")
 
 
 def logout() -> None:
@@ -219,6 +272,10 @@ def logout() -> None:
     # The request's own session: DELETE /session already holds its write transaction (recheck_for_write), and a
     # second connection would wait for that lock.
     session = db.session()
+    row = session.get(AppSession, _digest(token))
+    if row is not None:
+        session.add(AuditEvent(actor_id=row.user_id, action="SIGN_OUT", entity_type="APP_USER", entity_id=row.user_id,
+                               occurred_at=_clock().now()))
     session.execute(delete(AppSession).where(AppSession.id == _digest(token)))
     session.commit()
 
@@ -322,15 +379,21 @@ PERM_EDIT_RISKS = "edit.risks"
 PERM_EDIT_MAINTENANCE = "edit.maintenance"
 PERM_EDIT_TESTING = "edit.testing"
 PERM_EDIT_DOCUMENTS = "edit.documents"
+# The edit.* permissions let a role add records of that kind; changing, archiving or restoring a record that exists
+# also needs records.change (owner, 25 Nov 2026: the project manager and the user "add and view" only).
+PERM_CHANGE = "records.change"
 PERM_REPORTS_VIEW = "reports.view"
 PERM_REPORTS_EXEC = "reports.exec"
 PERM_REPORTS_BUILD = "reports.build"
 PERM_REPORTS_SCHEDULE = "reports.schedule"
 PERM_EXPORT = "export"
+# The user tracking screen «تتبع المستخدمين» (services/tracking_service.py): every action of every person.
+PERM_TRACKING = "tracking.view"
 PERM_ADMIN = "admin"
 PERMISSIONS = (PERM_VIEW, PERM_EDIT_REQUIREMENTS, PERM_EDIT_MODELS, PERM_EDIT_ASSETS, PERM_EDIT_PROJECTS,
-               PERM_EDIT_RISKS, PERM_EDIT_MAINTENANCE, PERM_EDIT_TESTING, PERM_EDIT_DOCUMENTS, PERM_REPORTS_VIEW,
-               PERM_REPORTS_EXEC, PERM_REPORTS_BUILD, PERM_REPORTS_SCHEDULE, PERM_EXPORT, PERM_ADMIN)
+               PERM_EDIT_RISKS, PERM_EDIT_MAINTENANCE, PERM_EDIT_TESTING, PERM_EDIT_DOCUMENTS, PERM_CHANGE,
+               PERM_REPORTS_VIEW, PERM_REPORTS_EXEC, PERM_REPORTS_BUILD, PERM_REPORTS_SCHEDULE, PERM_EXPORT, PERM_TRACKING,
+               PERM_ADMIN)
 
 SCOPE_ALL = "ALL"
 SCOPE_DEPARTMENT = "DEPARTMENT"
@@ -359,6 +422,16 @@ def can_admin(user: AppUser) -> bool:
     return PERM_ADMIN in user.permissions and _preview_role() is None
 
 
+def can_track(user: AppUser) -> bool:
+    """User tracking: what every person did. The real role only: never in a role preview."""
+    return PERM_TRACKING in user.permissions and _preview_role() is None
+
+
+def require_tracking(user: AppUser) -> None:
+    if not can_track(user):
+        raise Forbidden("Only the commander and the roles given user tracking can see it.")
+
+
 def department_scope(user: AppUser) -> frozenset[int] | None:
     """The departments the user may see: None means every department, otherwise exactly these ids."""
     if _preview_role() is not None:
@@ -385,12 +458,27 @@ def require_permission(user: AppUser, permission: str) -> None:
 
 
 def require_edit(user: AppUser, permission: str, department_id: int | None = None) -> None:
-    """A change: the permission, the department in scope (when the record has one), and never during a preview."""
+    """A write (adding a record, or the first step of any change): the permission, the department in scope (when the
+    record has one), and never during a preview."""
     if _preview_role() is not None:
         raise Forbidden("The role preview is read-only.", code="PREVIEW_READ_ONLY")
     require_permission(user, permission)
     if department_id is not None and not can_access_department(user, department_id):
         raise NotFound("That record was not found.")
+
+
+def can_change(user: AppUser) -> bool:
+    """Whether the role may change, archive and restore records that exist (not only add them)."""
+    return has_permission(user, PERM_CHANGE)
+
+
+def require_change(user: AppUser, permission: str, department_id: int | None = None) -> None:
+    """Changing, archiving or restoring a record that exists. For the record permissions (edit.*) the role also needs
+    records.change: without it, it adds records and views them only (403 ADD_ONLY). Out-of-scope records still answer
+    404 first. Other writes through crud (settings, report templates, schedules) are governed by their own permission."""
+    require_edit(user, permission, department_id)
+    if permission.startswith("edit.") and not can_change(user):
+        raise Forbidden("Your role may add records and view them, not change or archive them.", code="ADD_ONLY")
 
 
 def require_admin(user: AppUser) -> None:

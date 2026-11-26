@@ -20,7 +20,8 @@ copy .env.example .env
 powershell -ExecutionPolicy Bypass -File scripts\run_dev.ps1
 ```
 
-Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`). The first start creates
+Open http://127.0.0.1:8770 and sign in as `mock.admin` (password `Mock-Pass-123`; one demo account per role:
+`mock.commander`, `mock.admin`, `mock.capdev`, `mock.security`, `mock.unmanned`, `mock.pm`, `mock.user`). The first start creates
 `data/cpc-demo.db` and seeds the fictional demo world (4 departments, 4 categories, 12 models, 66 assets,
 15 requirements, 14 projects, 140 milestones, risks, issues, 13 months of KPI history).
 
@@ -53,7 +54,7 @@ the Oracle scripts); on the VM it is unpacked and started with `scripts/install.
 
 | Phase | Scope | State |
 |---|---|---|
-| 0 Foundation | config, SQLite/Oracle DB layer, migrations, 9 roles + permission matrix + department scope, admin role preview, audit, LDAP sign-in, sessions/CSRF/throttle, bilingual shell, login | **done** |
+| 0 Foundation | config, SQLite/Oracle DB layer, migrations, roles + permission matrix + department scope, admin role preview, audit, LDAP sign-in, sessions/CSRF/throttle, bilingual shell, login | **done** |
 | 1 Capabilities | requirements, models, assets (CRUD, audit, status history), registry with 11 filters + saved views + table/cards, per-category card views, asset / model / requirement profiles, structured technical specs, completion, gap analysis | **done** |
 | 2 Executive dashboard | KPI tiles with month/quarter/year trends, attention list, dept × category matrix, status distribution, completion rings, current vs forecast, gap heatmap, sites, portfolio overview, completion timeline; every figure drills to its records (+ CSV) | **done** |
 | 3 Projects | portfolio KPIs + charts, project profile with 6 RAG indicators and reasons, workflow path, milestones, project and portfolio Gantt, strategic timeline (month…5 years), risk register with P×I matrix, issues | **done** |
@@ -75,6 +76,85 @@ light / dark mode button (also on the sign-in page; each browser keeps its choic
 a colours button (top bar and sign-in page) with ready-made palettes for this device (`cpc.palette`, over the colours
 saved for everyone; saving in Settings > Appearance clears it on that device), which also leads administrators to
 Settings > Appearance.
+
+**User tracking «تتبع المستخدمين» (25 Nov 2026).** Replaces the user board (owner: the commander sees everything people
+do). Every API request that is an action writes one `ACTION_LOG` row (`services/tracking_service.py`, called by the
+`api/v1` after-request hook in its own short transaction): sign-ins (failed ones too) and sign-outs, every change asked
+for (POST/PUT/PATCH/DELETE), opening a record or a report, downloads and exports; lists, dashboards and look-ups are
+not actions. A row keeps who (name and role then), the action, the record (type, code, names), the outcome (carried
+out or not) with the error code, message and fields at fault, the file name of an upload or download, the time, the
+IP address and the request id; a change carried out points at its audit row (the fields that changed). Never kept:
+passwords or other request values (only the code of a record being added); a failed sign-in with a name that is no
+account keeps its first three letters. Append-only (triggers). Screen `/user-tracking` (menu «تتبع المستخدمين»;
+`/user-board` leads there): filters (days, person, kind, result, search), totals, the actions (details: what
+changed) and the people (sign-ins, failed sign-ins, actions, refused ones, signed in now). Permission `tracking.view`
+(the five heads of the structure; never in a role preview); API `GET /tracking/actions[/<id>]`, `GET /tracking/users`.
+Scripts `db/sqlite/V009`, `db/oracle/V011` (+ the `action_log` grant). The old `/user-activity` endpoints are gone.
+
+**The organisation's structure as the roles (25 Nov 2026).** The standard roles (`reference_data.ROLES`) are now the
+owner's structure, top down: القائد `COMMANDER` and مدير النظام `SYS_ADMIN` (level 1), رئيس شعبة تطوير القدرات
+`HEAD_CAP_DEV` (2), رئيس شعبة الأنظمة الأمنية `HEAD_SECURITY` and رئيس شعبة الأنظمة المسيّرة `HEAD_UNMANNED` (3),
+مدير المشروع `PROJECT_MGR` (4), المستخدم `USER` (5). The first five have every permission (owner: "all permissions,
+like the commander", so Settings, users and the user board too); the project manager and the user add and view
+only. They replace the nine earlier roles (owner's choice); the demo has one account per role. The new permission
+`records.change` separates changing, archiving and restoring from adding: `edit.*` alone adds (`auth.require_change`
+in `crud.update` / `crud.set_archived`, a document's second file, a project health note, a model's AI functions;
+403 `ADD_ONLY`; frontend `canChange` hides the edit, archive and replace buttons). Settings > Roles shows the structure
+(`APP_ROLE.tier`: one row per level, what each role may do in words, active people; the pencil edits names and
+level) above the permission matrix. Default alert rules name the new roles. Scripts `db/sqlite/V008`,
+`db/oracle/V010` (no new table): every existing role holding an `edit.*` permission is given `records.change`, so
+an existing database keeps working; its old roles stay until an administrator moves people (roles are never
+deleted). The tests keep the earlier narrow shapes as test-only roles (`tests/conftest.py` TEST_ROLES).
+
+**Users from Excel (24 Nov 2026).** Settings > Users has "Download the Excel template" and "Import from Excel" (`frontend/js/pages/user-import.js`, `backend/app/services/user_import.py`, `GET /users/import-template?lang=`, `POST /users/import/check`, `POST /users/import`). The template (EN/AR) has a role drop-down and an instructions sheet listing the roles and groups. The check reads the file (Excel or CSV) and checks every row with the rules of `user_service.create_user` (codes worded on the page); the import adds every row in one transaction, only when no row has a problem, each audited "Added from an Excel file (row N)". Passwords are hashed and never returned; with directory sign-in they are ignored and the username is the Windows name. System administrators only.
+
+**Settings > connections: the directory and the database from the website (24 Nov 2026).** Ported from the
+Asset Availability reference project (owner: "implement the same"; system administrators only). Four Settings tabs:
+Sign-in and directory, Database, Network and certificates, Connection history (`frontend/js/pages/connections.js`,
+API `/api/v1/connections/*`, services `backend/app/services/connections/`, guide `docs/SETTINGS.md`). Each
+connection is a profile with numbered revisions: save draft, test (staged, read-only), apply; passwords are encrypted
+with AES-256-GCM under `SETTINGS_KEY` (demo: `data/settings.key`), never returned or audited; sensitive steps need the
+password typed again (`POST /connections/reauth`). The directory and the sign-in method apply within seconds through
+`config_service.effective()` (`context.settings()` and the sign-in code read it). The database is never switched from
+the website: a candidate is tested (connect, schema, the grants of `db/oracle/runtime-grants.sql`, data) and staged;
+IT changes the server file and restarts. **Clean start** (owner): the data stage fails on any `mock.*` account (the
+demo world is made by them), the Oracle profile refuses to start on such a database, `mock.*` names are reserved for
+the local demo, and `flask setup-database --admin <name>` makes the first administrator and the standard lists on the
+empty database. Recovery: `flask settings-recover`, key rotation: `flask settings-rotate-key`. Schema: `db/sqlite/V007`,
+`db/oracle/V009`; the runtime grants moved from `docs/oracle-migration.md` into `db/oracle/runtime-grants.sql`. Not
+yet done from the reference: Keycloak SSO, AI servers, interface texts and logo, a Developer role.
+
+**Scans, golden samples, culture and the user board (24 Nov 2026).** Attached scans reuse the versioned documents:
+`document_service.SLOTS` gives some records fixed places for a scan (a test: capability deed «سند القدرة» and the live
+demonstration report for inspection; a maintenance order: the investigation board «هيئة التحقيق»; a golden-sample
+trial: the trial, the higher-level directive letter and the official trial form). `POST /attachments` puts a scan in
+its slot (the first scan makes the document, later ones are new versions); forms send chosen files after saving the
+record (`components/attachments.js`, form field `type: 'file'`). New pages: Capabilities > «موقف تجارب العينات الذهبية»
+(`/golden-samples`, table `golden_sample_trial`, TEST statuses, edited by the testing team); Maintenance > «صيانة القدرة»
+(`/maintenance/capability`: `maintenance_order.entry_reason_en/ar` and the investigation scan); «الثقافة» in the side
+menu (`/culture/references|guide|acquisition`: documents of the entity `LIBRARY`, id 1, kinds REFERENCE, USER_GUIDE,
+ACQUISITION_PLAN, only there); «لوحة عرض المستخدم» (`/user-board`; since 25 Nov replaced by user tracking, see above): each user's activity from the audit trail, which now also records SIGN_IN and SIGN_OUT.
+Scripts `db/sqlite/V006` (rebuilds DOCUMENT to widen its CHECK lists, `-- migrate: foreign-keys-off`) and
+`db/oracle/V008` (+ the `golden_sample_trial` grant). The sign-in page no longer lists the demo accounts.
+
+**The VM kit with one installer (25 Nov 2026).** Owner: "a kit with an executable bash file to move the web to the
+air-gapped VM; it has Docker and nginx". `predeployment\build.ps1` makes `dist\cpc-<version>.tar.gz` (pack.py keeps
+Linux permissions: `./install.sh` runs straight after `tar -xzf`). `deployment/install.sh` (no Docker Compose needed)
+asks the name users type, the database (built-in SQLite file in `/opt/cpc/data`, `APP_PROFILE=demo` +
+`APP_ENV=production` = empty, no mock accounts; or Oracle), the first administrator and their password; loads the image
+offline, installs into `/opt/cpc`, writes `app.env` with a new `SETTINGS_KEY`, uses IT's certificate or makes a
+self-signed one, runs `cpc-app` on `127.0.0.1:8770` (read-only, no capabilities), adds `cpc.conf` to the VM's nginx
+(`http.d` or `conf.d`; `nginx -t` first, the previous site kept in `backups/`; SELinux boolean), or runs the bundled
+nginx container when the VM has none, checks the site through nginx, runs `setup-database --password-stdin` (new
+option), installs `/etc/cron.d/cpc`. Re-running it updates (backup first; settings, data, certificate kept).
+`scripts/app.sh`: status, logs, restart, check, flask, backup (a consistent SQLite copy + scans + settings, 14 days).
+Guides `deployment/README.md` (IT) and `README-AR.md`; `internet-to-local.md` rewritten. Verified 25 Nov 2026: the kit
+(86 MB) installed with `--yes` on two stand-in VMs (docker:27.5.1-dind containers cut off from the network, so nothing
+could be downloaded), one with nginx 1.26 (Alpine, `http.d`) and one without (bundled nginx); on both: health, page and
+security headers through nginx, http→https, admin sign-in, only that account, no demo records, seven roles, adding a
+person, user tracking, a 3 MB upload through nginx, `app.sh check` and `backup`; an update run kept the data. Found and
+fixed on the way: the image did not start without `SETTINGS_KEY` on a read-only filesystem (the build's test start now
+passes one; `install.sh` always writes one). Not yet tried: a real Linux VM (RHEL/Ubuntu, systemd, SELinux).
 
 **Offline deployment bundle (18 Nov 2026).** `internet-to-local.md` is the guide for moving the system to the
 company's offline Linux VM: `predeployment/` (Dockerfile, `build.ps1`), `deployment/` (docker-compose with the app
@@ -110,4 +190,4 @@ conducting section». Units do not limit access (department scope is unchanged).
 - `take-snapshot` (daily KPI values) · `run-schedules` (daily scheduled reports) · `check-ldap [--username U12345]` · `set-break-glass-password` · `purge-sessions`
 
 ### Tests
-`scripts\run_tests.ps1` runs the unit + integration suite (349 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).
+`scripts\run_tests.ps1` runs the unit + integration suite (420 tests) and the frontend checks. `..\.venv\Scripts\python.exe -m pytest` from `backend/` (unit + integration; the e2e and oracle markers are opt-in).

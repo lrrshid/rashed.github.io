@@ -10,9 +10,17 @@ from ..core.database import UTCDateTime
 from .base import ArchivableMixin, AuditedMixin, Base, IdType, code_column, id_column, user_fk
 
 DOC_TYPES = ("REPORT", "SPECIFICATION", "CONTRACT", "TEST_REPORT", "MANUAL", "CERTIFICATE", "CORRESPONDENCE",
-             "PRESENTATION", "DATASHEET", "OTHER")
+             "PRESENTATION", "DATASHEET", "OTHER",
+             # attached scans with a fixed place on a page (document_service.SLOTS)
+             "GOLDEN_TRIAL", "DIRECTIVE_LETTER", "OFFICIAL_TRIAL_FORM", "INVESTIGATION", "CAPABILITY_DEED",
+             "LIVE_DEMO_REPORT",
+             # the culture library (entity LIBRARY): references, user guides, acquisition plans
+             "REFERENCE", "USER_GUIDE", "ACQUISITION_PLAN")
 DOC_ENTITIES = ("CAPABILITY_MODEL", "ASSET", "PROJECT", "TEST_EVENT", "MAINTENANCE_ORDER", "ORGANIZATION", "CONTRACT",
-                "CAPABILITY_REQUIREMENT")
+                "CAPABILITY_REQUIREMENT", "GOLDEN_SAMPLE_TRIAL", "LIBRARY")
+# The culture library is not a record: its documents use entity LIBRARY with this fixed id.
+LIBRARY_ID = 1
+LIBRARY_TYPES = ("REFERENCE", "USER_GUIDE", "ACQUISITION_PLAN")
 
 
 class Document(AuditedMixin, ArchivableMixin, Base):

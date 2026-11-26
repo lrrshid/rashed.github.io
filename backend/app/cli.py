@@ -46,7 +46,7 @@ def register_cli(app: Flask) -> None:
     @app.cli.command("create-user")
     @click.option("--username", required=True)
     @click.option("--display-name", default=None)
-    @click.option("--role", required=True, help="Role code, e.g. SYS_ADMIN, EXECUTIVE, DEPT_HEAD, PROJECT_MGR.")
+    @click.option("--role", required=True, help="Role code, e.g. COMMANDER, SYS_ADMIN, HEAD_CAP_DEV, PROJECT_MGR, USER.")
     @click.option("--department", "departments", multiple=True,
                   help="Department code (repeat for several). Required for department-scoped roles only.")
     def create_user_cmd(username, display_name, role, departments):
@@ -85,6 +85,100 @@ def register_cli(app: Flask) -> None:
             raise click.ClickException(_cli_message(exc)) from None
         click.echo(f"Created {user.role_code} user {user.username} (id {user.id})"
                    + (": signs in with the Windows password" if ldap_mode else ""))
+
+    @app.cli.command("setup-database")
+    @click.option("--admin", "username", required=True,
+                  help="The first system administrator, e.g. U12345 (the Windows username with directory sign-in).")
+    @click.option("--display-name", default=None)
+    @click.option("--password-stdin", is_flag=True, default=False,
+                  help="Read the password from the first line of standard input (the VM installer), not a prompt.")
+    def setup_database_cmd(username, display_name, password_stdin):
+        """A new, empty database (a clean start: never the demo data): the roles, the first system administrator and the
+        standard lists (groups, capability types, statuses, workflows, directorates ...). Refuses a database that
+        already has accounts. The password is read from a hidden prompt (or, with --password-stdin, from the first line
+        of standard input: never a command-line argument); with directory sign-in none is asked."""
+        from sqlalchemy import func, select
+
+        from .models import AppUser
+        from .seed.demo_seeder import seed_reference, seed_roles
+        from .services import context, user_service
+
+        if username.strip().lower().startswith("mock."):
+            raise click.ClickException("Names starting with mock. are reserved for the demo: a new database starts clean.")
+        accounts = context.session().scalar(select(func.count()).select_from(AppUser))
+        context.session().rollback()  # no transaction stays open while the password is typed
+        if accounts:
+            raise click.ClickException("This database already has accounts, so it is set up. Add people in "
+                                       "Settings > Users (or flask create-user).")
+        ldap_mode = context.settings().is_ldap
+        password = note = None
+        if ldap_mode:
+            try:
+                username = user_service.directory_username(username)
+            except AppError as exc:
+                raise click.ClickException(_cli_message(exc)) from None
+            note = user_service.DIRECTORY_ACCOUNT_NOTE
+        elif password_stdin:
+            password = click.get_text_stream("stdin").readline().rstrip("\r\n")
+            if not password:
+                raise click.ClickException("No password on standard input.")
+        else:
+            password = getpass.getpass("Password for the administrator (min 8 characters): ")
+            if password != getpass.getpass("Repeat password: "):
+                raise click.ClickException("Passwords do not match.")
+        try:
+            with write_intent():
+                seed_roles()
+                admin = user_service.create_user(username, display_name or username, ROLE_SYS_ADMIN, password,
+                                                 note=note or "First administrator (setup-database)")
+            with write_intent():
+                counts = seed_reference(admin)
+        except AppError as exc:
+            raise click.ClickException(_cli_message(exc)) from None
+        click.echo(f"Created the system administrator {admin.username}"
+                   + (" (signs in with the Windows password)" if ldap_mode else "") + ". Standard lists: "
+                   + ", ".join(f"{k} {v}" for k, v in counts.items()))
+
+    @app.cli.command("settings-recover")
+    @click.option("--as", "actor_name", required=True, help="Your username (an active system administrator).")
+    @click.option("--sign-in", "sign_in", type=click.Choice(["local", "ldap"]), default=None,
+                  help="Set the sign-in method (local: the app's own passwords).")
+    @click.option("--disable", "disable_id", type=int, default=None, help="Switch a connection off (its id).")
+    def settings_recover_cmd(actor_name, sign_in, disable_id):
+        """The way back when nobody can sign in, or a connection breaks the app (Settings > connections). Audited as the
+        administrator named with --as."""
+        from .services import user_service
+        from .services.connections import connection_service
+
+        if sign_in is None and disable_id is None:
+            raise click.ClickException("Say what to do: --sign-in local, and/or --disable <connection id>.")
+        with write_intent():
+            actor = user_service.find(actor_name)
+            if actor is None or not actor.active or "admin" not in actor.permissions:
+                raise click.ClickException(f"{actor_name} is not an active system administrator.")
+            try:
+                done = connection_service.recover(actor, sign_in, disable_id)
+            except AppError as exc:
+                raise click.ClickException(_cli_message(exc)) from None
+        click.echo("Done: " + "; ".join(done) + ". Every running process picks it up within seconds.")
+
+    @app.cli.command("settings-rotate-key")
+    @click.option("--as", "actor_name", required=True, help="Your username (an active system administrator).")
+    def settings_rotate_key_cmd(actor_name):
+        """Re-encrypt every password saved in Settings with the current SETTINGS_KEY (the old key in
+        SETTINGS_KEY_PREVIOUS). Then remove SETTINGS_KEY_PREVIOUS and restart."""
+        from .services import user_service
+        from .services.connections import connection_service
+
+        with write_intent():
+            actor = user_service.find(actor_name)
+            if actor is None or not actor.active or "admin" not in actor.permissions:
+                raise click.ClickException(f"{actor_name} is not an active system administrator.")
+            try:
+                changed = connection_service.rotate_key(actor)
+            except AppError as exc:
+                raise click.ClickException(_cli_message(exc)) from None
+        click.echo(f"{changed} revision(s) re-encrypted with the current key.")
 
     @app.cli.command("seed-reference")
     @click.option("--actor", required=True, help="Username of the active SYS_ADMIN recorded as creating the lists.")

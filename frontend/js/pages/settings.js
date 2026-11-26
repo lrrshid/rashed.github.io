@@ -7,11 +7,13 @@ import { name, t } from '../labels.js';
 import { formatDateTime } from '../lib/format.js';
 import { card, dataTable, errorBox, listOptions, loadingBox, lookupName, pager, tabs, toast } from '../components/ui.js';
 import { diff, formDialog } from './forms.js';
+import { CONNECTION_TABS, renderConnections } from './connections.js';
+import { downloadUserTemplate, openUserImport } from './user-import.js';
 import { fieldLabel } from './field-labels.js';
 import { DEFAULT_THEME, PRESETS, applyTheme, effectiveTheme, normalise, rememberTheme, setPersonalPalette } from '../lib/theme.js';
 
 const TABS = ['departments', 'categories', 'sites', 'units', 'organizations', 'contracts', 'statuses', 'workflows', 'specFields', 'ai',
-  'appearance', 'rules', 'roles', 'users', 'alertRules', 'audit'];
+  'appearance', 'rules', 'roles', 'users', 'alertRules', ...CONNECTION_TABS, 'audit'];
 const COLORS = ['green', 'amber', 'red', 'blue', 'purple', 'teal', 'grey', 'orange', 'pink', 'dark'];
 // Business-rule keys contain dots (assets.available_statuses), so they are looked up in the rules object directly.
 // Permission codes contain dots too (edit.requirements).
@@ -85,6 +87,7 @@ export async function render(container, ctx) {
       else if (tab === 'roles') await roles();
       else if (tab === 'users') await users();
       else if (tab === 'alertRules') await alertRules();
+      else if (CONNECTION_TABS.includes(tab)) await renderConnections(body, tab, draw);
       else await audit(0);
     } catch (e) { replace(body, errorBox(e, draw)); }
   }
@@ -236,6 +239,56 @@ export async function render(container, ctx) {
     set(current);
   }
 
+  // A role's level in the organisation's structure: 1 at the top, 0 = not placed (shown only; grants nothing).
+  const levelField = { key: 'tier', label: t('settings.roles.level'), type: 'select', required: true,
+    options: Array.from({ length: 11 }, (_, n) => ({ value: String(n), label: n ? t('settings.roles.levelN', { n }) : t('settings.roles.level0') })) };
+
+  // What a role may do, in words, from its permissions: every permission; add, view, change and archive; add and view
+  // (edit.* without records.change); view only.
+  function roleKind(r, all) {
+    if (all.every((p) => r.permissions.includes(p))) return 'all';
+    const adds = r.permissions.some((p) => p.startsWith('edit.'));
+    if (adds) return r.permissions.includes('records.change') ? 'change' : 'add';
+    return 'view';
+  }
+
+  function editRole(r) {
+    formDialog({ title: t('settings.roles.editTitle', { name: name(r) }), size: 'md',
+      values: { nameEn: r.nameEn, nameAr: r.nameAr, tier: String(r.tier || 0) },
+      spec: [...nameFields, levelField],
+      submit: (data) => api.patch(`/admin/roles/${r.id}`, { nameEn: data.nameEn, nameAr: data.nameAr, tier: Number(data.tier), version: r.version }),
+      onSaved: async () => { await refreshLookups(); draw(); } });
+  }
+
+  // The organisation's structure (owner, 25 Nov 2026): one row per level, top down, the roles of a level side by
+  // side, each with what it may do and how many active people have it; roles without a level are listed under it.
+  function structure(d) {
+    const byLevel = new Map();
+    for (const r of d.items) {
+      const level = r.tier || 0;
+      if (!byLevel.has(level)) byLevel.set(level, []);
+      byLevel.get(level).push(r);
+    }
+    const roleCard = (r) => {
+      const kind = roleKind(r, d.permissions);
+      return h('div', { class: `org-role org-${kind}` },
+        h('div', { class: 'org-name', text: name(r) }),
+        h('div', { class: 'org-perms', text: t(`settings.roles.summary.${kind}`) }),
+        h('div', { class: 'org-meta muted small', text: t('settings.roles.people', { n: r.activeUsers })
+          + (r.scope === 'DEPARTMENT' ? ` · ${t('settings.roles.DEPARTMENT')}` : '') }),
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost org-edit', 'aria-label': `${t('settings.roles.editRole')}: ${name(r)}`,
+          title: t('settings.roles.editRole'), onclick: () => editRole(r) }, icon('edit')));
+    };
+    const levels = [...byLevel.keys()].filter((level) => level > 0).sort((a, b) => a - b);
+    const unplaced = byLevel.get(0) || [];
+    return card(t('settings.roles.structure'), h('div', {},
+      h('p', { class: 'muted small', text: t('settings.roles.structureHint') }),
+      h('div', { class: 'org-chart' }, levels.map((level) => h('div', { class: 'org-level', role: 'group',
+        'aria-label': t('settings.roles.levelN', { n: level }) }, byLevel.get(level).map(roleCard)))),
+      unplaced.length ? h('div', { class: 'org-unplaced' }, h('div', { class: 'section-label', text: t('settings.roles.notPlaced') }),
+        h('div', { class: 'org-level' }, unplaced.map(roleCard))) : null));
+  }
+
   async function roles() {
     const d = await api.get('/admin/roles');
     const head = h('tr', {}, h('th', { text: t('settings.tabs.roles') }), d.items.map((r) => h('th', { style: 'text-align:center' }, name(r), h('div', { class: 'muted small', text: t(`settings.roles.${r.scope}`) }))));
@@ -248,28 +301,38 @@ export async function render(container, ctx) {
         });
         return h('td', { style: 'text-align:center' }, box);
       })));
-    replace(body, h('div', { class: 'toolbar' }, h('span'), h('button', { type: 'button', class: 'btn btn-primary', onclick: () => formDialog({ title: t('settings.roles.newRole'), size: 'md', values: { scope: 'ALL' },
+    replace(body, h('div', { class: 'toolbar' }, h('span'), h('button', { type: 'button', class: 'btn btn-primary', onclick: () => formDialog({ title: t('settings.roles.newRole'), size: 'md', values: { scope: 'ALL', tier: '0' },
       spec: [{ key: 'code', label: t('settings.roles.code'), required: true, max: 30, dir: 'ltr' }, ...nameFields,
-        { key: 'scope', label: t('settings.roles.scope'), type: 'select', required: true, options: ['ALL', 'DEPARTMENT'].map((s) => ({ value: s, label: t(`settings.roles.${s}`) })) }],
-      submit: (data) => api.post('/admin/roles', { ...data, permissions: ['view'] }), onSaved: async () => { await refreshLookups(); draw(); } }) }, icon('plus'), t('settings.roles.newRole'))),
+        { key: 'scope', label: t('settings.roles.scope'), type: 'select', required: true, options: ['ALL', 'DEPARTMENT'].map((s) => ({ value: s, label: t(`settings.roles.${s}`) })) },
+        levelField],
+      submit: (data) => api.post('/admin/roles', { ...data, tier: Number(data.tier), permissions: ['view'] }), onSaved: async () => { await refreshLookups(); draw(); } }) }, icon('plus'), t('settings.roles.newRole'))),
+    structure(d),
     h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('thead', {}, head), h('tbody', {}, rows))));
   }
 
   async function users() {
     const d = await api.get('/users', { size: 100 });
     const roleOptions = lookupList('roles').map((r) => ({ value: r.code, label: name(r) }));
+    // A new person starts with the lowest role of the structure (the user), else the last role listed.
+    const placed = lookupList('roles').filter((r) => r.tier).sort((a, b) => b.tier - a.tier);
+    const firstRole = (placed[0] || lookupList('roles').slice(-1)[0] || {}).code || '';
     const deptOptions = listOptions(lookupList('departments'));
     const open = (u) => formDialog({ title: u ? t('settings.users.editTitle', { name: u.displayName }) : t('settings.users.newTitle'), size: 'md', withReason: Boolean(u),
-      values: u ? { username: u.username, displayName: u.displayName, role: u.role, active: u.active, departmentIds: u.departments.map((x) => x.id) } : { role: 'VIEWER', departmentIds: [] },
+      values: u ? { username: u.username, displayName: u.displayName, role: u.role, active: u.active, departmentIds: u.departments.map((x) => x.id) } : { role: firstRole, departmentIds: [] },
       spec: [{ key: 'username', label: t('settings.users.username'), required: true, max: 120, dir: 'ltr', readonly: Boolean(u) },
         { key: 'displayName', label: t('settings.users.displayName'), max: 160 },
         { key: 'role', label: t('settings.users.role'), type: 'select', required: true, options: roleOptions },
         u ? { key: 'active', label: t('settings.users.active'), type: 'bool' } : { key: 'password', label: t('settings.users.password'), max: 200 },
-        { key: 'departmentIds', label: t('settings.users.departments'), type: 'checks', span: true, options: deptOptions }],
+        { key: 'departmentIds', label: t('settings.users.departments'), type: 'checks', span: true, options: deptOptions,
+          showWhen: (v) => (lookupList('roles').find((r) => r.code === v.role) || {}).scope === 'DEPARTMENT' }],
       submit: (data) => (u ? api.patch(`/users/${u.id}`, { ...diff({ displayName: u.displayName, role: u.role, active: u.active, departmentIds: u.departments.map((x) => x.id) }, data), version: u.version })
         : api.post('/users', { username: data.username, displayName: data.displayName, role: data.role, password: data.password || undefined, departmentIds: data.departmentIds })),
       onSaved: draw });
-    replace(body, h('div', { class: 'toolbar' }, h('span'), h('button', { type: 'button', class: 'btn btn-primary', onclick: () => open(null) }, icon('plus'), t('settings.users.add'))),
+    // Many people at once: the Excel template, then the import (pages/user-import.js); one person: the form.
+    replace(body, h('div', { class: 'toolbar' }, h('span'), h('div', { class: 'actions' },
+      h('button', { type: 'button', class: 'btn', onclick: downloadUserTemplate }, icon('download'), t('settings.users.import.template')),
+      h('button', { type: 'button', class: 'btn', onclick: () => openUserImport(draw) }, icon('file'), t('settings.users.import.open')),
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: () => open(null) }, icon('plus'), t('settings.users.add')))),
       dataTable([
         { key: 'u', label: t('settings.users.username'), render: (u) => h('span', { class: 'mono', text: u.username }) },
         { key: 'n', label: t('settings.users.displayName'), render: (u) => u.displayName },

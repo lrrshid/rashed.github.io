@@ -102,6 +102,8 @@ def _prepare_database(app: Flask, settings: Settings) -> None:
     if settings.auto_migrate:
         migrate_sqlite(db.engine, SQLITE_MIGRATIONS_DIR)
     check_schema(db.engine, Base.metadata, db.schema)
+    if settings.profile == "oracle":
+        refuse_demo_data(db.engine)
     if settings.auto_seed:
         from .seed.demo_seeder import seed_if_empty
 
@@ -112,6 +114,24 @@ def _prepare_database(app: Flask, settings: Settings) -> None:
                 # The request teardown that ends sessions is not registered yet: end this one here, or a read
                 # after the seeder's last commit keeps the SQLite write lock and every request answers BUSY.
                 db.remove()
+
+
+def refuse_demo_data(engine) -> None:
+    """The real (Oracle) database starts clean and stays so (owner, 24 Nov 2026): the app does not start on one that
+    holds the demo data. The demo world is made by the demo accounts (mock.*: every demo record names one as its
+    creator), so their presence is the sign."""
+    from sqlalchemy import text
+
+    from .core.config import ConfigError
+
+    with engine.connect() as conn:
+        found = int(conn.execute(text("SELECT COUNT(*) FROM app_user WHERE LOWER(username) LIKE 'mock.%'")).scalar()
+                    or 0)
+    if found:
+        raise ConfigError(f"this database holds the demo data ({found} demo account(s) mock.* and the records they "
+                          f"made). The Oracle database must start clean: use an empty one (the DBA runs the db/oracle "
+                          f"scripts and db/oracle/runtime-grants.sql only), then flask setup-database. Never copy the "
+                          f"demo database (docs/oracle-migration.md).")
 
 
 def _register_frontend(app: Flask) -> None:

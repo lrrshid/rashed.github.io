@@ -255,8 +255,8 @@ def role_dto(role: AppRole) -> dict:
     users = context.session().scalar(select(func.count()).select_from(AppUser).where(AppUser.role_code == role.code,
                                                                                      AppUser.is_active == 1))
     return {"id": sid(role.id), "code": role.code, "nameEn": role.name_en, "nameAr": role.name_ar, "scope": role.scope,
-            "system": bool(role.is_system), "permissions": sorted(role.permissions), "activeUsers": users,
-            "version": role.version}
+            "tier": role.tier, "system": bool(role.is_system), "permissions": sorted(role.permissions),
+            "activeUsers": users, "version": role.version}
 
 
 def list_roles(actor) -> dict:
@@ -269,7 +269,7 @@ def save_role(actor, payload: dict, role_id: int | None = None) -> dict:
     import re
     require_admin(actor)
     session = context.session()
-    allowed = {"code", "nameEn", "nameAr", "scope", "permissions", "version", "reason"}
+    allowed = {"code", "nameEn", "nameAr", "scope", "tier", "permissions", "version", "reason"}
     unknown = set(payload) - allowed
     if unknown:
         raise ValidationFailed("Unsupported field.", [{"field": f, "message": "Unsupported field."} for f in sorted(unknown)])
@@ -284,6 +284,10 @@ def save_role(actor, payload: dict, role_id: int | None = None) -> dict:
     for key in ("nameEn", "nameAr"):
         if key in payload and not (isinstance(payload[key], str) and 2 <= len(payload[key].strip()) <= 120):
             raise ValidationFailed.field(key, "Must be 2 to 120 characters.")
+    # The level in the organisation's hierarchy (1 = top, 0 = not placed): shown in Settings > Roles, grants nothing.
+    tier = payload.get("tier")
+    if tier is not None and (isinstance(tier, bool) or not isinstance(tier, int) or not 0 <= tier <= 20):
+        raise ValidationFailed.field("tier", "Must be a whole number from 0 to 20.")
     now = context.now()
     if role_id is None:
         code = str(payload.get("code") or "").strip().upper()
@@ -294,7 +298,7 @@ def save_role(actor, payload: dict, role_id: int | None = None) -> dict:
         if not payload.get("nameEn") or not payload.get("nameAr"):
             raise ValidationFailed.field("nameEn", "Both names are required.")
         role = AppRole(code=code, name_en=payload["nameEn"].strip(), name_ar=payload["nameAr"].strip(),
-                       scope=scope or "ALL", is_system=0, sort_order=100, created_at=now, updated_at=now)
+                       scope=scope or "ALL", is_system=0, sort_order=100, tier=tier or 0, created_at=now, updated_at=now)
         role.permission_links = [RolePermission(permission=p, created_at=now) for p in (perms or ["view"])]
         session.add(role)
         session.flush()
@@ -320,6 +324,8 @@ def save_role(actor, payload: dict, role_id: int | None = None) -> dict:
         role.name_ar = payload["nameAr"].strip()
     if scope is not None:
         role.scope = scope
+    if tier is not None:
+        role.tier = tier
     if perms is not None:
         role.permission_links[:] = [link for link in role.permission_links if link.permission in perms]
         have = {link.permission for link in role.permission_links}

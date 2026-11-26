@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 
+from flask import g, has_request_context
 from sqlalchemy import func, inspect as sa_inspect, select
 
 from ..core.clock import iso_utc
@@ -17,9 +18,12 @@ from ..schemas.common import page_envelope
 from . import context
 
 # Never in a snapshot: secrets, and the stamps every change moves anyway.
-_EXCLUDED = {"password_hash", "created_at", "updated_at", "created_by", "updated_by"}
+_EXCLUDED = {"password_hash", "created_at", "updated_at", "created_by", "updated_by",
+             # Settings > connections: a revision's secrets are never recorded, encrypted or not (only which ones are
+             # saved, secret_names below); a certificate's body is public but long (its SHA-256 is kept).
+             "secrets_json", "pem"}
 # Extra (non-column) values some records add to their snapshot: link lists kept in child tables.
-_EXTRA = {"APP_USER": ("department_ids_text",)}
+_EXTRA = {"APP_USER": ("department_ids_text",), "SETTING_REVISION": ("secret_names",)}
 _CONTEXT_KEYS = ("transition", "links")
 
 
@@ -68,6 +72,9 @@ def record(actor, action: str, entity, before: dict | None, after: dict | None, 
         reason=reason,
     )
     context.session().add(event)
+    if has_request_context():
+        # User tracking (tracking_service.record_request) links the action to the change it made.
+        g.setdefault("audit_events", []).append((event, action, event.entity_type, event.entity_id))
     return event
 
 

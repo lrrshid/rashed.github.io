@@ -67,11 +67,19 @@ CODE_LABELS = {
     "docType": {"REPORT": ("Report", "تقرير"), "SPECIFICATION": ("Specification", "مواصفات"), "CONTRACT": ("Contract", "عقد"),
                 "TEST_REPORT": ("Test report", "تقرير اختبار"), "MANUAL": ("Manual", "دليل"), "CERTIFICATE": ("Certificate", "شهادة"),
                 "CORRESPONDENCE": ("Correspondence", "مراسلات"), "PRESENTATION": ("Presentation", "عرض تقديمي"),
-                "DATASHEET": ("Datasheet", "نشرة بيانات"), "OTHER": ("Other", "أخرى")},
+                "DATASHEET": ("Datasheet", "نشرة بيانات"), "OTHER": ("Other", "أخرى"),
+                "GOLDEN_TRIAL": ("Golden-sample trial", "تجربة العينة الذهبية"),
+                "DIRECTIVE_LETTER": ("Higher-level directive letter", "كتاب توجيه المستوى الأعلى"),
+                "OFFICIAL_TRIAL_FORM": ("Official trial form", "نموذج التجربة الرسمي"),
+                "INVESTIGATION": ("Investigation board", "هيئة التحقيق"), "CAPABILITY_DEED": ("Capability deed", "سند القدرة"),
+                "LIVE_DEMO_REPORT": ("Live demonstration report for inspection", "تقرير نموذج العرض الحي لغرض التفتيش"),
+                "REFERENCE": ("Reference", "مرجع"), "USER_GUIDE": ("User guide", "دليل المستخدم"),
+                "ACQUISITION_PLAN": ("Acquisition plan", "خطة الاستحواذ")},
     "entity": {"CAPABILITY_MODEL": ("Capability model", "نموذج قدرة"), "ASSET": ("Asset", "أصل"), "PROJECT": ("Project", "مشروع"),
                "TEST_EVENT": ("Test", "اختبار"), "MAINTENANCE_ORDER": ("Maintenance", "صيانة"),
                "ORGANIZATION": ("Supplier / manufacturer", "مورد / شركة مصنعة"), "CONTRACT": ("Contract", "عقد"),
-               "CAPABILITY_REQUIREMENT": ("Requirement", "متطلب")},
+               "CAPABILITY_REQUIREMENT": ("Requirement", "متطلب"),
+               "GOLDEN_SAMPLE_TRIAL": ("Golden-sample trial", "تجربة عينة ذهبية"), "LIBRARY": ("Culture library", "مكتبة الثقافة")},
 }
 
 

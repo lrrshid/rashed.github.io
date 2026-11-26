@@ -402,7 +402,6 @@ table.heat td button:focus-visible { outline: 3px solid var(--focus); }
 
 /* sign-in */
 .login-lang { margin-top: 14px; text-align: center; }
-.mock-hint { margin-top: 14px; font-size: .76rem; color: var(--text-muted); background: var(--surface-muted); border-radius: var(--radius-sm); padding: 8px 10px; }
 
 /* gantt / timeline charts */
 .gantt { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
@@ -501,3 +500,73 @@ table.data .mono, table.data td.num, .badge { white-space: nowrap; }
 th.vertical { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font-size: .7rem; padding: 6px 2px; }
 .tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; }
 .badge.wrap { white-space: normal; }
+
+/* Attached scans in fixed slots (components/attachments.js): golden-sample trials, maintenance, tests. */
+.slots { display: flex; flex-direction: column; gap: 10px; }
+.slot { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) auto; align-items: center; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-muted); }
+.slot-label { font-weight: 600; }
+.slot-file { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.slot-file .icon { width: 16px; height: 16px; }
+.slot-input { display: none; }
+.file-field { display: flex; flex-direction: column; gap: 4px; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+.reason-text { white-space: pre-wrap; max-width: 46ch; margin: 0; }
+.page-kicker { color: var(--gold-600); font-weight: 700; font-size: .8rem; letter-spacing: .02em; margin-bottom: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+/* The user board: a dot for users signed in right now. */
+.presence { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); margin-inline-end: 8px; }
+.presence.on { background: #12a150; }
+
+/* Settings > connections (pages/connections.js): the directory, the database, certificates and destinations. */
+.conn-profile { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-block: 14px; background: var(--surface); }
+.conn-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.conn-head h3 { margin: 0; }
+.conn-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-block: 8px 14px; }
+.conn-badges { display: inline-flex; gap: 6px; }
+.conn-secret { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.conn-secret .input { max-width: 280px; }
+.conn-certs { display: flex; flex-direction: column; gap: 6px; }
+.conn-check { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.conn-advanced { margin-block: 10px; }
+.conn-advanced summary { cursor: pointer; font-weight: 600; }
+.conn-test { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-block: 14px 4px; }
+.conn-test legend { font-weight: 700; padding-inline: 6px; }
+.conn-inline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-block: 10px; }
+.conn-inline .field { min-width: 220px; margin: 0; }
+.conn-stages, .conn-steps { margin: 10px 0 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 8px; }
+.conn-tech { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; unicode-bidi: isolate; overflow-wrap: anywhere; }
+.conn-checks, .conn-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.conn-cutover { margin-top: 16px; padding: 14px 16px; border-radius: var(--radius-sm); background: var(--surface-muted); border-inline-start: 3px solid var(--gold); }
+.conn-cutover h4 { margin: 0 0 6px; }
+.conn-env { display: flex; align-items: flex-start; gap: 10px; margin-top: 6px; }
+.conn-env pre { margin: 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; flex: 1; }
+.conn-clean { display: flex; align-items: flex-start; gap: 8px; }
+
+/* Settings > Users > Import from Excel (pages/user-import.js). */
+.import-steps { margin: 0 0 12px; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 4px; }
+.import-result { margin-top: 12px; max-height: 52vh; overflow: auto; }
+.import-state { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Settings > Roles: the organisation's structure, top down, one row per level (pages/settings.js structure()). */
+.org-chart { display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 6px 0 4px; }
+.org-level { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.org-chart .org-level + .org-level::before { content: ''; position: absolute; inset-block-start: -28px;
+  inset-inline-start: calc(50% - 1px); block-size: 28px; border-inline-start: 2px solid var(--border-strong); }
+.org-role { position: relative; inline-size: 240px; padding: 12px 14px 10px; border: 1px solid var(--border);
+  border-block-start: 4px solid var(--grey); border-radius: var(--radius); background: var(--surface);
+  box-shadow: var(--shadow); text-align: center; }
+.org-role.org-all { border-block-start-color: var(--gold); }
+.org-role.org-change { border-block-start-color: var(--teal); }
+.org-role.org-add { border-block-start-color: var(--blue); }
+.org-name { font-weight: 700; padding-inline: 22px; }
+.org-perms { margin-top: 4px; font-size: .86rem; }
+.org-meta { margin-top: 2px; }
+.org-edit { position: absolute; inset-block-start: 6px; inset-inline-end: 6px; }
+.org-unplaced { margin-top: 14px; }
+
+/* User tracking (pages/user-tracking.js): the filters in one row that wraps, a refused action with its reason. */
+.tracking-filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+.tracking-filters .field { margin: 0; min-inline-size: 150px; }
+.tracking-filters .field:has(#tr-q) { flex: 1 1 220px; }
+.tracking-result { display: flex; flex-direction: column; gap: 2px; max-inline-size: 280px; }

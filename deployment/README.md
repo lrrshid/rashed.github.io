@@ -1,103 +1,116 @@
 # Capability Portfolio Command: install on the offline VM
 
-This folder is the unpacked bundle `cpc-<version>.tar.gz`, built on the internet-connected PC by
-`predeployment\build.ps1`. Nothing here downloads anything: both images are in `images/`.
+This folder is the unpacked kit `cpc-<version>.tar.gz`, built on the internet-connected PC by
+`predeployment\build.ps1`. Nothing here downloads anything: the application image is in `images/`.
+Arabic quick guide: `README-AR.md`.
 
 ```
- Users' browsers ──HTTPS 443──▶ proxy (nginx:1.27.3-alpine) ──▶ app (cpc:<version>, waitress :8080)
-                                                                   ├─▶ Oracle (DBA)
-                                                                   └─▶ domain controllers (optional, ldap.env)
+ Users' browsers ──HTTPS──▶ the VM's nginx (site cpc.conf) ──▶ 127.0.0.1:8770 ──▶ container cpc-app (cpc:<version>)
+                                                                                     ├─▶ /opt/cpc/data (database file,
+                                                                                     │    uploaded scans, reports)
+                                                                                     ├─▶ Oracle (optional, DBA)
+                                                                                     └─▶ domain controllers (optional)
 ```
 
 | Path | What it is |
 |---|---|
-| `docker-compose.yml` | The two containers. Needs **Docker Compose 2.24+** |
-| `app.env.example` | The settings template → `app.env` (yours, never in the bundle) |
-| `ldap.env.example`, `ldap/README.md` | Windows (directory) sign-in, optional |
-| `nginx/nginx.conf`, `nginx/certs/README.md` | The HTTPS front; IT's certificate goes in `nginx/certs/` |
-| `scripts/install.sh` | First install and every update |
-| `scripts/app.sh` | Everyday commands |
-| `images/` | The two Docker images (`docker load`) |
-| `oracle-scripts/` | The schema scripts `V001`…`V007` for the DBA, in order |
-| `docs/` | `oracle-migration.md` (DBA: run order and runtime grants), `IT_REQUEST.md`, `LDAP_IT_MANUAL.md` |
-| `data/` | Made by `install.sh`: uploaded document files and scheduled reports. **Back it up** |
-| `VERSION`, `SHA256SUMS` | The version, and the checksums `install.sh` verifies |
+| `install.sh` | **The one command**: first install, update, or apply a change (certificate, ldap.env) |
+| `scripts/app.sh` | Everyday commands: status, logs, restart, backup, check, flask ... |
+| `nginx/cpc-site.conf.template` | The site `install.sh` adds to the VM's nginx |
+| `nginx/nginx.conf` | Only for a VM without nginx: the bundled nginx container uses it |
+| `app.env.example` | Every setting explained (`install.sh` writes `/opt/cpc/app.env`) |
+| `certs/README.md` | IT's HTTPS certificate (else `install.sh` makes a self-signed one) |
+| `ldap.env.example`, `ldap/README.md` | Windows (directory) sign-in the old way; the website way is Settings |
+| `images/` | The application image, and nginx for a VM without nginx (`docker load`) |
+| `oracle-scripts/` | The schema scripts `V001`…`V011` for the DBA, in order, and `runtime-grants.sql` |
+| `docs/` | `SETTINGS.md` (directory and database from the website), `oracle-migration.md`, `IT_REQUEST.md`, LDAP guides |
+| `VERSION`, `IMAGE_PLATFORM`, `SHA256SUMS` | The version, the CPU type, and the checksums `install.sh` verifies |
 
 ## 1. Before you start
 
-- Docker Engine and the Compose plugin 2.24+ (`docker compose version`), installed offline by IT.
-- The DBA has run `oracle-scripts/V001`…`V007` as the owner account (e.g. `CPC_OWNER`) and the runtime grants of
-  `docs/oracle-migration.md` section 3 for the runtime account (e.g. `CPC_APP`).
-- IT's certificate (`server.crt` with its chain, `server.key`) for the app's DNS name.
-- The VM reaches Oracle (usually 1521) and users reach the VM on 443 (and 80, which only redirects).
-- The VM's clock is synchronised (NTP): sign-in sessions depend on it.
+- A Linux VM (x86-64 unless the kit was built for ARM) with **Docker Engine** running (`docker info`) and
+  **nginx** (`nginx -v`). No Docker Compose is needed. Without nginx, `install.sh` runs the bundled nginx container.
+- `openssl`, `sha256sum`, `tar` (present on every usual distribution); `curl` lets `install.sh` check the site at the
+  end.
+- Root (`sudo`).
+- Users reach the VM on 443 (and 80, which only redirects to HTTPS). The VM's clock is synchronised (NTP).
+- Optional: IT's certificate for the name users will type (`certs/README.md`). Without it the site starts with a
+  self-signed certificate (browsers warn) that can be replaced later.
+- Optional, for Oracle instead of the built-in database: the DBA has run `oracle-scripts/V001`…`V011` on an **empty**
+  schema, then `runtime-grants.sql` (`docs/oracle-migration.md`). The demo data never goes to Oracle: the app refuses
+  to start on a database that holds it.
 
-## 2. First install
+## 2. Install
 
 ```bash
-mkdir -p /opt/cpc && cd /opt/cpc
-tar -xzf /path/to/cpc-<version>.tar.gz --strip-components=1
-sha256sum /path/to/cpc-<version>.tar.gz          # compare with the value noted on the build PC
-cp app.env.example app.env && chmod 600 app.env
-nano app.env                                     # fill every <...>: ORACLE_DSN, ORACLE_PASSWORD, ...
-cp /path/to/server.crt /path/to/server.key nginx/certs/
-sudo bash ./scripts/install.sh                   # checks, loads the images, starts, waits until healthy
-bash ./scripts/app.sh check                      # "Schema OK"
-bash ./scripts/app.sh flask create-user --username <name> --display-name "<Full Name>" --role SYS_ADMIN
-bash ./scripts/app.sh flask seed-reference --actor <name>     # the starting lists (groups, categories, statuses ...)
+sha256sum cpc-<version>.tar.gz          # the same value as printed when the kit was built
+tar -xzf cpc-<version>.tar.gz
+cd cpc-<version>
+sudo ./install.sh
 ```
 
-Then open `https://<name>` and sign in as that administrator: add the users, their roles and groups in
-**Settings**. The demo accounts (`mock.*`) never exist here.
+It asks four things (Enter keeps the value in brackets):
 
-On a VM with SELinux enforcing (Red Hat family), add `:z` to the two `volumes` lines of the `app` service in
-`docker-compose.yml` if the app cannot write `data/` or read `ldap/`.
+1. **The name users type in the browser**: the VM's DNS name or its IP address.
+2. **The database**: `1` built-in (a file in `/opt/cpc/data`; start now, move to Oracle later from Settings >
+   Database) or `2` Oracle (address `host:port/service`, account, schema, password).
+3. **The first system administrator's username** (e.g. a U number).
+4. **Their password** (twice, not shown).
 
-## 3. Windows (directory) sign-in
+Then it loads the image, writes `/opt/cpc/app.env` (with a new `SETTINGS_KEY`), makes the certificate, starts the
+app container on `127.0.0.1:8770`, adds `cpc.conf` to nginx's `conf.d` (checked with `nginx -t` first: a refused
+configuration is removed and nginx is left as it was), reloads nginx, checks the site through nginx, creates the
+administrator and the standard lists, and installs the daily jobs (`/etc/cron.d/cpc`). It ends with the address.
 
-See `ldap/README.md`: the CA certificate goes in `ldap/`, the settings in `ldap.env`, and
-`bash ./scripts/app.sh flask set-break-glass-password` is run before the switch.
+Without questions (all values from the environment; see the top of `install.sh` for the list):
 
-## 4. Daily jobs
-
-As root, `crontab -e`:
-
-```
-15 1 * * * cd /opt/cpc && bash ./scripts/app.sh flask purge-sessions  >> /var/log/cpc-jobs.log 2>&1
-30 1 * * * cd /opt/cpc && bash ./scripts/app.sh flask take-snapshot   >> /var/log/cpc-jobs.log 2>&1
-45 1 * * * cd /opt/cpc && bash ./scripts/app.sh flask run-schedules   >> /var/log/cpc-jobs.log 2>&1
-30 2 * * * cd /opt/cpc && bash ./scripts/app.sh backup                >> /var/log/cpc-jobs.log 2>&1
+```bash
+sudo CPC_SERVER_NAME=cpc.company.local CPC_DB=builtin CPC_ADMIN=U12345 CPC_ADMIN_PASSWORD='...' ./install.sh --yes
 ```
 
-`take-snapshot` stores the day's KPI values (the month / quarter / year trends); `run-schedules` writes the
-scheduled reports into `data/reports/` (also downloadable from Reports > Report history); `backup` packs `data/` and
-the settings into `backups/` (copy them off the VM; delete old ones).
+Different ports: `CPC_HTTPS_PORT=8443` (the site), `CPC_APP_PORT=8770` (the app on the loopback, for nginx).
 
-## 5. Smoke test
+## 3. After the install
 
-- `bash ./scripts/app.sh status`: both containers `healthy` / `running`.
-- `https://<name>` shows the sign-in page with no certificate warning; `http://<name>` redirects to https.
-- Sign in; open the capability position, Projects, Testing, Reports; upload a document of a few MB (checks the
-  upload limit through nginx); export an Excel file; generate a report.
-- `bash ./scripts/app.sh logs app` shows no errors.
+- Open the address, sign in as the administrator, then add people: Settings > Users (one by one, or **Import from
+  Excel**). The roles are the organisation's structure (commander, heads of section, project manager, user).
+- Windows sign-in: Settings > **Sign-in and directory** (`docs/SETTINGS.md`). Before switching, add your own Windows
+  account as system administrator: the local `admin` password stops working.
+- Moving to Oracle later: Settings > **Database** (test an empty Oracle, stage it), then the Oracle block of
+  `/opt/cpc/app.env` and `sudo /opt/cpc/scripts/app.sh restart`, then `app.sh flask setup-database --admin <name>`.
 
-## 6. Updates and rollback
+## 4. Everyday
 
-- **Update:** the DBA first runs any **new** `oracle-scripts/V0xx` (and its grant from `docs/oracle-migration.md`).
-  Then unpack the new bundle **into the same folder** (`app.env`, `ldap.env`, `nginx/certs/`, `data/` are kept) and
-  `sudo bash ./scripts/install.sh`. The app refuses to start while the schema does not match; its log names what is
-  missing (`bash ./scripts/app.sh logs app`).
-- **Rollback:** only if no new database script was applied (or the DBA restored the database): in `.env` set
-  `APP_VERSION` to the `# previous version` written there, then `bash ./scripts/app.sh restart`.
+```bash
+sudo /opt/cpc/scripts/app.sh status       # containers, version, address
+sudo /opt/cpc/scripts/app.sh logs         # the app's log (Ctrl+C to stop)
+sudo /opt/cpc/scripts/app.sh restart      # after changing app.env or ldap.env
+sudo /opt/cpc/scripts/app.sh backup       # into /opt/cpc/backups (also every night at 02:00), kept 14 days
+sudo /opt/cpc/scripts/app.sh check        # every table and column the app needs is there
+```
 
-## 7. Back up
+**Backups**: `/opt/cpc/backups/cpc-<date>.tar.gz` holds the database (built-in; a consistent copy taken while the app
+runs), the uploaded scans, the scheduled reports, `app.env` (with `SETTINGS_KEY`) and the certificate. Copy them off
+the VM. With Oracle, the records are in Oracle: the DBA backs them up.
 
-- Oracle (the DBA): every record, the audit trail and the settings.
-- `data/`: the uploaded document files (`data/files/`) and scheduled reports. Without it, documents cannot be opened.
-- `app.env`, `ldap.env`, `ldap/`, `nginx/certs/`: `bash ./scripts/app.sh backup` packs all of these.
+**Daily jobs** (`/etc/cron.d/cpc`, log `/var/log/cpc-jobs.log`): the KPI snapshot (01:15), the scheduled reports
+(01:30), old sessions (01:45), the backup (02:00). Without `/etc/cron.d`, put these lines in root's crontab.
 
-## 8. Never
+## 5. Update
 
-- Never put `app.env`, `ldap.env`, keys or backups in Git, tickets or chat; never print their values.
-- Never run the demo profile (`APP_PROFILE=demo`) or the mock accounts here.
-- Never download images or packages on the VM; a new version always comes as a new bundle.
+Copy the new kit, unpack it anywhere, run its `install.sh`. It takes a backup first, keeps `/opt/cpc/app.env`, the data
+and the certificate, loads the new image and restarts the app (a minute without service). Schema changes are applied
+by the app at start (built-in database) or by the DBA first (Oracle: the new `oracle-scripts`).
+
+To go back: the previous version's image stays loaded. Restore the backup taken just before the update
+(`tar -xzf ... -C /opt/cpc` with the app stopped), then run the previous kit's `install.sh`.
+
+## 6. If something goes wrong
+
+| Symptom | Look at |
+|---|---|
+| `install.sh` stops with ERROR | The message says what to fix; run it again (it is safe to repeat) |
+| The site answers 502 | `app.sh status`, `app.sh logs`; on RHEL-family VMs SELinux: `getsebool httpd_can_network_connect` (install.sh sets it) |
+| The browser warns about the certificate | The self-signed one: put IT's in `/opt/cpc/certs/` (`certs/README.md`), `sudo /opt/cpc/install.sh` |
+| Nobody can sign in after switching to Windows sign-in | `app.sh flask settings-recover --as <admin> --sign-in local` (`docs/SETTINGS.md`) |
+| Port 443 is taken by another program (not nginx) | `sudo CPC_HTTPS_PORT=8443 ./install.sh`; open `https://<name>:8443/` |

@@ -55,6 +55,27 @@ class MaintenanceOrder(AuditedMixin, ArchivableMixin, Base):
     parts_shortage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     parts_text: Mapped[str | None] = mapped_column(String(500))
     performed_by: Mapped[str | None] = mapped_column(String(160))
+    # Why the capability entered maintenance (Maintenance > Capability maintenance); the investigation board's scan is
+    # an attached document of type INVESTIGATION.
+    entry_reason_en: Mapped[str | None] = mapped_column(Text)
+    entry_reason_ar: Mapped[str | None] = mapped_column(Text)
+
+
+class GoldenSampleTrial(AuditedMixin, ArchivableMixin, Base):
+    """A trial of a golden sample (the reference unit of a capability model). Its trial record, the higher-level
+    directive letter and the official trial form are attached documents (GOLDEN_TRIAL, DIRECTIVE_LETTER,
+    OFFICIAL_TRIAL_FORM). Status: the TEST status list."""
+    __tablename__ = "golden_sample_trial"
+
+    id: Mapped[int] = id_column("golden_sample_trial_seq")
+    code: Mapped[str] = code_column()
+    title_en: Mapped[str] = mapped_column(String(200), nullable=False)
+    title_ar: Mapped[str] = mapped_column(String(200), nullable=False)
+    model_id: Mapped[int] = mapped_column(IdType, ForeignKey("capability_model.id"), nullable=False)
+    trial_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status_code: Mapped[str] = mapped_column(String(30), nullable=False)
+    notes_en: Mapped[str | None] = mapped_column(Text)
+    notes_ar: Mapped[str | None] = mapped_column(Text)
 
 
 class AiTechnology(NamedMixin, AuditedMixin, ArchivableMixin, Base):

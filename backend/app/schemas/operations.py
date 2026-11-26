@@ -56,6 +56,31 @@ class TestUpdate(_TestFields, PatchModel):
     version: Version | None = None
 
 
+class _GoldenFields(ApiModel):
+    notes_en: optional_text(2000) = None
+    notes_ar: optional_text(2000) = None
+
+
+class GoldenTrialCreate(_GoldenFields):
+    code: code_text(2, 20)
+    title_en: Title
+    title_ar: Title
+    model_id: Id
+    trial_date: DateOnly
+    status_code: StatusCode
+
+
+class GoldenTrialUpdate(_GoldenFields, PatchModel):
+    REQUIRED_ON_PATCH: ClassVar[tuple[str, ...]] = ("title_en", "title_ar", "model_id", "trial_date", "status_code")
+    title_en: Title | None = None
+    title_ar: Title | None = None
+    model_id: Id | None = None
+    trial_date: DateOnly = None
+    status_code: StatusCode | None = None
+    reason: Reason = None
+    version: Version | None = None
+
+
 class _MaintFields(ApiModel):
     expected_end_date: DateOnly = None
     actual_end_date: DateOnly = None
@@ -64,6 +89,8 @@ class _MaintFields(ApiModel):
     parts_shortage: bool = False
     parts_text: optional_text(500) = None
     performed_by: optional_text(160) = None
+    entry_reason_en: optional_text(2000) = None
+    entry_reason_ar: optional_text(2000) = None
 
 
 class MaintenanceCreate(_MaintFields):

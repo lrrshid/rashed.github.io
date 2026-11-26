@@ -124,8 +124,8 @@ def test_views_alerts_and_settings(admin):
     assert admin.put("/api/v1/settings/health.schedule", json={"value": {"amber_days": 2, "red_days": 20},
                                                                "version": rule["version"]}).status_code == 200
     roles = {r["code"]: r for r in admin.json("/api/v1/admin/roles")["items"]}
-    assert admin.patch(f"/api/v1/admin/roles/{roles['VIEWER']['id']}", json={"permissions": ["view", "export"],
-                                                                             "version": roles["VIEWER"]["version"]}).status_code == 200
+    assert admin.patch(f"/api/v1/admin/roles/{roles['USER']['id']}", json={"permissions": ["view", "export"], "tier": 6,
+                                                                           "version": roles["USER"]["version"]}).status_code == 200
     view = admin.post("/api/v1/saved-views", json={"page": "registry", "name": "x", "filters": {"q": "OA"}})
     assert admin.delete(f"/api/v1/saved-views/{view.get_json()['id']}").status_code == 204
     assert admin.json("/api/v1/search?q=Oracle")["projects"]

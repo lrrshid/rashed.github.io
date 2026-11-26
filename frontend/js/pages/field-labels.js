@@ -13,6 +13,8 @@ const MAP = {
   name_en: 'fields.nameEn', name_ar: 'fields.nameAr', category_id: 'fields.category', manufacturer_id: 'fields.manufacturer',
   role_en: 'fields.role', role_ar: 'fields.role', unit_cost: 'fields.unitCost', required_qty: 'fields.requiredQty',
   priority: 'fields.priority', target_date: 'fields.targetDate', model_ids_text: 'fields.models', code: 'fields.code',
+  entry_reason_en: 'capMaint.fields.reasonEn', entry_reason_ar: 'capMaint.fields.reasonAr', trial_date: 'golden.fields.date',
+  notes_en: 'golden.fields.notesEn', notes_ar: 'golden.fields.notesAr',
 };
 
 export function fieldLabel(field) {

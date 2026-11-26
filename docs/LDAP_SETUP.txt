@@ -58,7 +58,7 @@ this PC keep working exactly as before.
   IT (the company directory)                  The dashboard admin (role ADMIN, page "Settings > Users")
   ------------------------------------------  ---------------------------------------------------------------
   Windows usernames and passwords             WHO may use the system (only people added there, and active)
-  Password resets, expiry, lock-outs          Each person's ROLE (nine roles, e.g. Executive, Head of department)
+  Password resets, expiry, lock-outs          Each person's ROLE (e.g. Commander, Project manager, User)
   Disabling people who leave                  The DEPARTMENTS of a department-scoped user
   The settings file ldap.env on the server    Deactivating a person in the system (ends their session at once)
   The read-only service account               Never sees or sets a Windows password

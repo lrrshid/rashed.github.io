@@ -2,7 +2,7 @@
 // history and full audit trail. Tests, maintenance, projects and documents tabs fill in as those modules arrive.
 import { api } from '../api.js';
 import { h, icon, replace } from '../lib/dom.js';
-import { canEdit } from '../lib/state.js';
+import { canChange } from '../lib/state.js';
 import { name, t } from '../labels.js';
 import { formatCount, formatDate, formatDateTime, formatMoney, formatNumber, formatPercent } from '../lib/format.js';
 import { card, categoryGlyph, dl, errorBox, historyList, loadingBox, meter, refName, statusBadge, tabs, toast } from '../components/ui.js';
@@ -22,7 +22,7 @@ export async function render(container, ctx) {
       return;
     }
     const actions = h('div', { class: 'actions' });
-    if (canEdit('edit.assets')) {
+    if (canChange('edit.assets')) {
       actions.append(h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openAssetForm(asset, load) }, icon('edit'), t('common.edit')));
       actions.append(h('button', { type: 'button', class: 'btn', onclick: async () => {
         const archiving = !asset.archived;

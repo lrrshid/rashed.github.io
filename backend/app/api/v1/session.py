@@ -6,6 +6,7 @@ from flask import current_app, g, jsonify, make_response, request
 from ...schemas.common import ApiModel, Query, required_text
 from ...schemas.dto import session_user
 from ...security import auth
+from ...services import context
 from . import body, bp, user
 
 
@@ -18,7 +19,7 @@ class LoginRequest(ApiModel):
 
 
 def _session_body(account, csrf_token: str) -> dict:
-    settings = current_app.config["SETTINGS"]
+    settings = context.settings()  # the sign-in method in effect (Settings > connections may have changed it)
     return {
         "user": session_user(account, auth.permissions(account), auth.department_scope(account)),
         "viewAs": g.view_as_role.code if getattr(g, "view_as_role", None) is not None else None,
@@ -57,7 +58,7 @@ def appearance():
 @auth.public
 def session_options():
     Query(request.args, set())
-    return jsonify(sign_in_options(current_app.config["SETTINGS"]))
+    return jsonify(sign_in_options(context.settings()))
 
 
 @bp.post("/session")
@@ -65,6 +66,7 @@ def session_options():
 def login():
     data = LoginRequest.model_validate(body())
     account, token, csrf_token = auth.login(data.username, data.password)
+    g.tracking_user = account  # user tracking: whose sign-in it was (no session existed before it)
     settings = current_app.config["SETTINGS"]
     response = make_response(jsonify(_session_body(account, csrf_token)))
     response.set_cookie(

@@ -3,6 +3,7 @@ on the server, regardless of what the browser shows or hides."""
 from __future__ import annotations
 
 import json
+import logging
 
 from flask import Blueprint, current_app, g, jsonify, request
 
@@ -65,6 +66,18 @@ def _apply_view_as(user) -> None:
         session.close()
 
 
+@bp.after_request
+def _track(response):
+    """User tracking: one ACTION_LOG row per action (services/tracking_service.py). It never changes the answer."""
+    from ...services import tracking_service
+
+    try:
+        tracking_service.record_request(response)
+    except Exception:  # noqa: BLE001 - the action is done or refused either way; only its row is missing
+        logging.getLogger("cpc.tracking").exception("user tracking failed")
+    return response
+
+
 @bp.teardown_request
 def _clear_write_intent(_exc):
     set_write_intent(False)
@@ -100,5 +113,5 @@ def user():
 
 
 # Route modules register themselves on `bp`.
-from . import (admin, capabilities, dashboard, documents_alerts, health, operations, projects, reports,  # noqa: E402,F401
-               session, users)
+from . import (admin, capabilities, connections, dashboard, documents_alerts, health, operations, projects,  # noqa: E402,F401
+               reports, session, tracking, users)

@@ -6,6 +6,7 @@ import PROJECTS from './labels-projects.js';
 import OPERATIONS from './labels-operations.js';
 import ADMIN from './labels-admin.js';
 import REPORTS from './labels-reports.js';
+import CONNECTIONS from './labels-connections.js';
 
 const EN = {
   app: { name: 'National Guard Capability System', short: 'National Guard Capability System',
@@ -30,6 +31,9 @@ const EN = {
     timeline: 'Strategic timeline', gantt: 'Gantt chart', milestones: 'Milestones', risks: 'Risks', issues: 'Issues',
     testing: 'Testing and evaluation', maintenance: 'Maintenance and technical readiness', decision: 'Decision support',
     reports: 'Reports and analytics', documents: 'Documents', alerts: 'Alerts', settings: 'Settings', audit: 'Audit history',
+    culture: 'Culture', references: 'References', userGuide: 'User guide', acquisitionPlan: 'Acquisition plan',
+    goldenSamples: 'Golden-sample trials status', maintenanceGroup: 'Maintenance',
+    capabilityMaintenance: 'Capability maintenance', tracking: 'User tracking',
     footer: 'Unmanned systems capability command. Classification: to be set later.',
   },
   top: {
@@ -45,7 +49,6 @@ const EN = {
     cardHint: 'Sign in with your account to continue.',
     signInForColours: 'Sign in as a system administrator to change the site colours.',
     pillarDevelopment: 'Continuous development', pillarReadiness: 'High readiness', pillarExcellence: 'Excellence',
-    demoTitle: 'Demo accounts',
   },
   errors: { generic: 'Something went wrong. Try again.', network: 'The server cannot be reached. Check the connection.',
     notFound: 'That page or record was not found.', forbidden: 'Your role does not allow that.' },
@@ -110,7 +113,8 @@ const EN = {
     trend: '{m} m · {q} q · {y} y', drillTitle: '{title}', drillCount: '{n} records', current: 'Current', pipelineCol: 'Pipeline',
     total: 'Total', readyAssets: 'Ready assets', notReadyAssets: 'Not ready / maintenance',
   },
-  history: { CREATE: 'Created', UPDATE: 'Changed', ARCHIVE: 'Archived', RESTORE: 'Restored', UPLOAD: 'New version uploaded', by: 'by {name}',
+  history: { CREATE: 'Created', UPDATE: 'Changed', ARCHIVE: 'Archived', RESTORE: 'Restored', UPLOAD: 'New version uploaded',
+    SIGN_IN: 'Signed in', SIGN_OUT: 'Signed out', by: 'by {name}',
     empty: 'No changes recorded yet.', field: '{field}: {from} → {to}' },
   dateField: { placeholder: 'dd/mm/yyyy', invalid: 'Enter the date as dd/mm/yyyy.', choose: 'Choose date',
     chooseFor: 'Choose date: {field}', previousMonth: 'Previous month', nextMonth: 'Next month' },
@@ -119,7 +123,7 @@ const EN = {
   placeholder: { title: '{name}', body: 'This module is planned in the build plan and arrives in a later phase. The data model and permissions are ready for it.' },
 };
 
-Object.assign(EN, PROJECTS, OPERATIONS, ADMIN, REPORTS);
+Object.assign(EN, PROJECTS, OPERATIONS, ADMIN, REPORTS, CONNECTIONS);
 
 // Modules of later phases add their strings here (an English object and its Arabic twin).
 export function extendLabels(en) { Object.assign(EN, en); }
@@ -128,7 +132,8 @@ let AR = null;
 
 export async function loadLanguage() {
   if (language() === 'ar') {
-    const parts = await Promise.all([import('./i18n/ar/index.js'), import('./i18n/ar/projects.js'), import('./i18n/ar/operations.js'), import('./i18n/ar/admin.js'), import('./i18n/ar/reports.js')]);
+    const parts = await Promise.all([import('./i18n/ar/index.js'), import('./i18n/ar/projects.js'), import('./i18n/ar/operations.js'), import('./i18n/ar/admin.js'), import('./i18n/ar/reports.js'),
+      import('./i18n/ar/connections.js')]);
     AR = Object.assign({}, ...parts.map((m) => m.default));
   }
 }

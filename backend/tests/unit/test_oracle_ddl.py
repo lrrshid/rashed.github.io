@@ -13,6 +13,9 @@ DB = Path(__file__).resolve().parents[3] / "db"
 CREATE = re.compile(r"CREATE TABLE (\w+)\s*\((.*?)\n\);", re.S | re.I)
 # A column added by a later script: SQLite "ALTER TABLE t ADD COLUMN c ...", Oracle "ALTER TABLE t ADD (c ...)".
 ADD_COLUMN = re.compile(r"ALTER TABLE (\w+) ADD (?:COLUMN )?\(?(\w+) ", re.I)
+# A SQLite table rebuild (a CHECK constraint widened): CREATE TABLE x_NEW, DROP TABLE x, ALTER TABLE x_NEW RENAME TO x.
+DROP = re.compile(r"DROP TABLE (\w+)\s*;", re.I)
+RENAME = re.compile(r"ALTER TABLE (\w+) RENAME TO (\w+)", re.I)
 
 
 def _tables(folder: str) -> dict[str, set[str]]:
@@ -29,6 +32,10 @@ def _tables(folder: str) -> dict[str, set[str]]:
         for name, column in ADD_COLUMN.findall(path.read_text(encoding="utf-8")):
             if column.upper() != "CONSTRAINT":
                 out.setdefault(name.lower(), set()).add(column.lower())
+        for name in DROP.findall(path.read_text(encoding="utf-8")):
+            out.pop(name.lower(), None)
+        for old, new in RENAME.findall(path.read_text(encoding="utf-8")):
+            out[new.lower()] = out.pop(old.lower())
     return out
 
 

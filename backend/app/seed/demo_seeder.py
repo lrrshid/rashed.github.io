@@ -46,11 +46,11 @@ def seed_roles() -> int:
     have = {r.code for r in session.scalars(select(AppRole))}
     now = context.now()
     added = 0
-    for order, (code, en, ar, scope, permissions) in enumerate(ref.ROLES):
+    for order, (code, en, ar, scope, permissions, tier) in enumerate(ref.ROLES):
         if code in have:
             continue
         role = AppRole(code=code, name_en=en, name_ar=ar, scope=scope, is_system=1 if code == "SYS_ADMIN" else 0,
-                       sort_order=order, created_at=now, updated_at=now)
+                       sort_order=order, tier=tier, created_at=now, updated_at=now)
         role.permission_links = [RolePermission(permission=p, created_at=now) for p in permissions]
         session.add(role)
         added += 1
@@ -326,7 +326,8 @@ def seed_if_empty() -> dict | None:
 
 def _seed_operations(admin, day, models: dict, projects: dict, dept: dict, sites: dict) -> None:
     """AI functions per model, tests, maintenance orders and development opportunities (fixture_operations)."""
-    from ..models import AiTechnology, DevelopmentOpportunity, MaintenanceOrder, ModelAiTech, TestEvent
+    from ..models import (AiTechnology, DevelopmentOpportunity, GoldenSampleTrial, MaintenanceOrder, ModelAiTech,
+                          TestEvent)
     from . import fixture_operations as ops
 
     session = context.session()
@@ -348,7 +349,12 @@ def _seed_operations(admin, day, models: dict, projects: dict, dept: dict, sites
         _add(admin, MaintenanceOrder(code=code, asset_id=assets[asset], maint_type=mtype, title_en=en, title_ar=ar,
                                      status_code=status, start_date=day(start), expected_end_date=day(expected),
                                      actual_end_date=day(actual), progress_pct=progress, cost=cost,
-                                     parts_shortage=shortage, parts_text=parts, performed_by=fx.PEOPLE[6]))
+                                     parts_shortage=shortage, parts_text=parts, performed_by=fx.PEOPLE[6],
+                                     entry_reason_en=ops.MAINTENANCE_REASONS.get(code, (None, None))[0],
+                                     entry_reason_ar=ops.MAINTENANCE_REASONS.get(code, (None, None))[1]))
+    for (code, model, en, ar, offset, status, n_en, n_ar) in ops.GOLDEN_TRIALS:
+        _add(admin, GoldenSampleTrial(code=code, model_id=models[model], title_en=en, title_ar=ar, trial_date=day(offset),
+                                      status_code=status, notes_en=n_en, notes_ar=n_ar))
     for (code, model, dtype, en, ar, b_en, b_ar, status, complexity, cost, months, priority, project) in ops.DEVELOPMENT:
         _add(admin, DevelopmentOpportunity(code=code, model_id=models[model], dev_type=dtype, title_en=en, title_ar=ar,
                                            benefit_en=b_en, benefit_ar=b_ar, status_code=status, complexity=complexity,

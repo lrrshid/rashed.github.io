@@ -36,13 +36,16 @@ def test_forecast_slip_turns_schedule_red_and_is_audited(admin):
     assert history[0]["reason"] == "Supplier delay"
 
 
-def test_health_note_is_recorded_with_its_reason(pm, admin):
+def test_health_note_is_recorded_with_its_reason(capdev, pm, admin):
     pid = _project(admin, "PRJ-002")["id"]
-    res = pm.put(f"/api/v1/projects/{pid}/health/SCOPE", json={"rag": "RED", "reasonEn": "Scope doubled",
-                                                              "reasonAr": "تضاعف النطاق"})
+    note = {"rag": "RED", "reasonEn": "Scope doubled", "reasonAr": "تضاعف النطاق"}
+    # Judging a project that exists is a change: the project manager adds and views only.
+    refused = pm.put(f"/api/v1/projects/{pid}/health/SCOPE", json=note)
+    assert refused.status_code == 403 and refused.get_json()["code"] == "ADD_ONLY"
+    res = capdev.put(f"/api/v1/projects/{pid}/health/SCOPE", json=note)
     assert res.status_code == 200, res.get_json()
     assert res.get_json()["indicators"]["SCOPE"] == {"rag": "RED", "reasonEn": "Scope doubled", "reasonAr": "تضاعف النطاق"}
-    assert pm.put(f"/api/v1/projects/{pid}/health/BUDGET", json={"rag": "RED"}).status_code == 404
+    assert capdev.put(f"/api/v1/projects/{pid}/health/BUDGET", json={"rag": "RED"}).status_code == 404
 
 
 def test_risk_score_level_and_matrix(pm, admin):
